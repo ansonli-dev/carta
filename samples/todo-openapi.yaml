@@ -1,0 +1,35 @@
+openapi: 3.0.3
+info:
+  title: Todo API
+  version: 1.0.0
+paths:
+  /todos:
+    get:
+      operationId: listTodos
+      summary: List todos
+      tags:
+        - Todos
+      responses:
+        "200":
+          description: Todo list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Todo"
+components:
+  schemas:
+    Todo:
+      type: object
+      required:
+        - id
+        - title
+        - completed
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        completed:
+          type: boolean

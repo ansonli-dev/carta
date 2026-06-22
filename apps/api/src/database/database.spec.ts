@@ -1,8 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { createKyselyForTest } from "./database.js";
 
+const hasDatabaseUrl = Boolean(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL);
+
 describe("database schema", () => {
-  test("can insert an API project and draft version", async () => {
+  test.skipIf(!hasDatabaseUrl)("can insert an API project and draft version", async () => {
     const db = await createKyselyForTest();
     const suffix = Date.now().toString(36);
     const projectId = `prj_test_${suffix}`;

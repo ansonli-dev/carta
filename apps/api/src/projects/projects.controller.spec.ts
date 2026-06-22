@@ -7,6 +7,8 @@ import { AppModule } from "../app.module.js";
 import type { CartaDatabase } from "../database/database.js";
 import { DATABASE } from "../database/database.module.js";
 
+const hasDatabaseUrl = Boolean(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL);
+
 describe("Projects API", () => {
   let app: NestFastifyApplication;
   let db: Kysely<CartaDatabase>;
@@ -31,7 +33,7 @@ describe("Projects API", () => {
     }
   });
 
-  test("creates a project and saves a valid OpenAPI revision", async () => {
+  test.skipIf(!hasDatabaseUrl)("creates a project and saves a valid OpenAPI revision", async () => {
     const suffix = Date.now().toString(36);
     const projectResponse = await request(app.getHttpServer())
       .post("/api/projects")
@@ -50,7 +52,7 @@ describe("Projects API", () => {
     expect(revisionResponse.body.parseStatus).toBe("valid");
   });
 
-  test("returns endpoint catalog and latest OpenAPI source for docs", async () => {
+  test.skipIf(!hasDatabaseUrl)("returns endpoint catalog and latest OpenAPI source for docs", async () => {
     const suffix = Date.now().toString(36);
     const projectResponse = await request(app.getHttpServer())
       .post("/api/projects")
