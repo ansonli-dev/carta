@@ -6,10 +6,12 @@ type ElementsApiElement = HTMLElement & {
 };
 
 type StoplightDocsPanelProps = {
-  source: string;
+  apiDescriptionUrl?: string;
+  layout?: "sidebar" | "stacked";
+  source?: string;
 };
 
-export function StoplightDocsPanel({ source }: StoplightDocsPanelProps) {
+export function StoplightDocsPanel({ apiDescriptionUrl, layout = "sidebar", source }: StoplightDocsPanelProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const elementRef = useRef<ElementsApiElement | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
@@ -33,10 +35,14 @@ export function StoplightDocsPanel({ source }: StoplightDocsPanelProps) {
         hostRef.current.replaceChildren();
 
         const element = document.createElement("elements-api") as ElementsApiElement;
-        element.setAttribute("router", "memory");
-        element.setAttribute("layout", "sidebar");
-        element.setAttribute("hideTryItPanel", "true");
-        element.apiDescriptionDocument = source;
+        element.setAttribute("router", "history");
+        element.setAttribute("layout", layout);
+        if (apiDescriptionUrl) {
+          element.setAttribute("apiDescriptionUrl", apiDescriptionUrl);
+        }
+        if (source) {
+          element.apiDescriptionDocument = source;
+        }
         elementRef.current = element;
         hostRef.current.appendChild(element);
         setState("ready");
@@ -57,10 +63,16 @@ export function StoplightDocsPanel({ source }: StoplightDocsPanelProps) {
   }, []);
 
   useEffect(() => {
-    if (elementRef.current) {
+    if (elementRef.current && source) {
       elementRef.current.apiDescriptionDocument = source;
     }
   }, [source]);
+
+  useEffect(() => {
+    if (elementRef.current && apiDescriptionUrl) {
+      elementRef.current.setAttribute("apiDescriptionUrl", apiDescriptionUrl);
+    }
+  }, [apiDescriptionUrl]);
 
   if (import.meta.env.MODE === "test") {
     return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Documentation preview" />;
