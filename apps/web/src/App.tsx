@@ -38,8 +38,8 @@ export function App() {
       <ConfigProvider
         theme={{
           token: {
-            borderRadius: 6,
-            colorPrimary: "#1668dc",
+            borderRadius: 4,
+            colorPrimary: "#2563eb",
             fontFamily:
               'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
           }
@@ -207,7 +207,14 @@ function ConsoleApp() {
     <Layout className="app-shell">
       {contextHolder}
       <Layout.Header className="topbar">
-        <div className="brand">Carta</div>
+        <div className="brand-lockup">
+          <div className="brand-mark">C</div>
+          <div>
+            <div className="brand">Carta</div>
+            <div className="brand-subtitle">API delivery console</div>
+          </div>
+        </div>
+        <div className="topbar-meta">Local development</div>
       </Layout.Header>
       <Layout className="console-layout">
         <CatalogPage
