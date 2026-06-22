@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run \"src/**/*.spec.ts\" --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "migrate": "node-pg-migrate up -m ../../migrations --database-url \"${DATABASE_URL:-postgres://carta:carta@localhost:5432/carta}\""
   },
