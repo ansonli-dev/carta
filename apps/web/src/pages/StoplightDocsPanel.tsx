@@ -8,10 +8,11 @@ type ElementsApiElement = HTMLElement & {
 type StoplightDocsPanelProps = {
   apiDescriptionUrl?: string;
   layout?: "sidebar" | "stacked";
+  router?: "history" | "hash" | "memory";
   source?: string;
 };
 
-export function StoplightDocsPanel({ apiDescriptionUrl, layout = "sidebar", source }: StoplightDocsPanelProps) {
+export function StoplightDocsPanel({ apiDescriptionUrl, layout = "sidebar", router = "history", source }: StoplightDocsPanelProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const elementRef = useRef<ElementsApiElement | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
@@ -35,7 +36,7 @@ export function StoplightDocsPanel({ apiDescriptionUrl, layout = "sidebar", sour
         hostRef.current.replaceChildren();
 
         const element = document.createElement("elements-api") as ElementsApiElement;
-        element.setAttribute("router", "history");
+        element.setAttribute("router", router);
         element.setAttribute("layout", layout);
         if (apiDescriptionUrl) {
           element.setAttribute("apiDescriptionUrl", apiDescriptionUrl);

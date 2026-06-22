@@ -1,24 +1,74 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { App } from "./App";
 
-describe("Carta Elements demo", () => {
-  test("renders the Stoplight-style demo controls", async () => {
+describe("Carta project flow", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  test("selects a project before opening API management", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        json([
+          {
+            id: "prj_1",
+            name: "Payments API",
+            code: "payments",
+            ownerTeam: "platform",
+            currentVersion: { id: "ver_1", status: "draft" },
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        new Response("openapi: 3.0.3\ninfo:\n  title: Payments API\n  version: 1.0.0\npaths: {}\n", {
+          status: 200,
+          headers: { "Content-Type": "text/yaml" },
+        }),
+      );
+
     render(<App />);
 
-    expect(screen.getByText("Stoplight Elements Demo")).toBeInTheDocument();
-    expect(screen.getByLabelText("URL to an OpenAPI document")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Try It!" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Pick an Example")).toBeInTheDocument();
-    expect(screen.getByText("Documentation preview")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Projects" })).toBeInTheDocument();
+    expect(screen.getByText("Select a project")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByLabelText("Pick an Example"));
-    await userEvent.click(screen.getByRole("button", { name: "Zoom" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Manage API" }));
 
-    expect(screen.getByLabelText("URL to an OpenAPI document")).toHaveValue(
-      "https://raw.githubusercontent.com/stoplightio/Public-APIs/master/reference/zoom/openapi.yaml",
+    expect(await screen.findByText("Payments API")).toBeInTheDocument();
+    expect(screen.getByLabelText("OpenAPI source")).toHaveValue(
+      "openapi: 3.0.3\ninfo:\n  title: Payments API\n  version: 1.0.0\npaths: {}\n",
     );
+    expect(screen.getByText("Documentation preview")).toBeInTheDocument();
+  });
+
+  test("creates a project and enters API management", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(json([]))
+      .mockResolvedValueOnce(
+        json({
+          id: "prj_2",
+          name: "Orders API",
+          code: "orders",
+          ownerTeam: "platform",
+          currentVersion: { id: "ver_2", status: "draft" },
+        }),
+      );
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Projects" });
+    await userEvent.type(screen.getByLabelText("Project name"), "Orders API");
+    await userEvent.type(screen.getByLabelText("Project code"), "orders");
+    await userEvent.click(screen.getByRole("button", { name: "Create and manage API" }));
+
+    await waitFor(() => expect(screen.getByText("Orders API")).toBeInTheDocument());
+    expect(screen.getByLabelText<HTMLTextAreaElement>("OpenAPI source").value).toContain("title: Orders API");
   });
 });
+
+function json(body: unknown) {
+  return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+}

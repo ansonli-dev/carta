@@ -1,6 +1,6 @@
 :root {
   color: #1f2937;
-  background: #ffffff;
+  background: #eef2f7;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -20,6 +20,175 @@ body {
   overflow: hidden;
 }
 
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.project-management-page {
+  min-height: 100vh;
+  padding: 28px;
+  overflow: auto;
+  background: #eef2f7;
+}
+
+.project-management-header {
+  display: flex;
+  max-width: 1180px;
+  margin: 0 auto 18px;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.project-management-header h1,
+.project-create-panel h2,
+.project-list-panel h2,
+.project-card h3 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.project-management-header h1 {
+  font-size: 32px;
+}
+
+.project-management-header > span,
+.panel-heading > span {
+  padding: 6px 10px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  background: #ffffff;
+  border: 1px solid #d8e0eb;
+  border-radius: 999px;
+}
+
+.project-management-grid {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  max-width: 1180px;
+  margin: 0 auto;
+  gap: 16px;
+}
+
+.project-create-panel,
+.project-list-panel {
+  background: #ffffff;
+  border: 1px solid #d8e0eb;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+
+.project-create-panel {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 18px;
+}
+
+.project-create-panel label {
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.project-create-panel input {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  outline: none;
+}
+
+.project-create-panel input:focus {
+  border-color: #2563eb;
+}
+
+.project-create-panel button,
+.project-card button,
+.demo-link button,
+.back-button {
+  height: 34px;
+  padding: 0 12px;
+  color: #ffffff;
+  font-weight: 700;
+  background: #2563eb;
+  border: 1px solid #1d4ed8;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.project-create-panel button:disabled,
+.demo-link button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.project-list-panel {
+  min-height: 420px;
+  padding: 18px;
+}
+
+.panel-heading {
+  display: flex;
+  margin-bottom: 14px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.project-cards {
+  display: grid;
+  gap: 10px;
+}
+
+.project-card {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  border: 1px solid #d8e0eb;
+  border-radius: 6px;
+}
+
+.project-card h3 {
+  font-size: 16px;
+}
+
+.project-card p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.empty-projects,
+.inline-error,
+.api-error {
+  padding: 12px;
+  color: #991b1b;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+}
+
+.inline-error {
+  max-width: 1180px;
+  margin: 0 auto 12px;
+}
+
+.api-management-shell,
 .demo-shell {
   display: flex;
   width: 100%;
@@ -56,6 +225,26 @@ body {
   white-space: nowrap;
 }
 
+.project-api-meta {
+  gap: 8px;
+  justify-content: center;
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
+.project-api-meta span,
+.project-api-meta a {
+  max-width: 240px;
+  padding: 5px 8px;
+  overflow: hidden;
+  color: #dbeafe;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #252b37;
+  border: 1px solid #3b4454;
+  border-radius: 999px;
+}
+
 .demo-spec-controls {
   gap: 8px;
   justify-content: center;
@@ -83,32 +272,59 @@ body {
 
 .demo-spec-controls button,
 .example-picker summary,
-.demo-link a {
+.demo-link a,
+.demo-link button,
+.back-button {
   height: 30px;
   padding: 0 10px;
   color: #f9fafb;
   font: inherit;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   background: #1f2430;
   border: 1px solid #3b4454;
   border-radius: 4px;
   white-space: nowrap;
 }
 
+.back-button {
+  color: #dbeafe;
+  background: transparent;
+}
+
+.demo-link {
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.demo-link a {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
 .demo-spec-controls button,
-.example-picker summary {
+.example-picker summary,
+.demo-link button,
+.back-button {
   cursor: pointer;
 }
 
 .demo-spec-controls button:hover,
 .example-picker summary:hover,
-.demo-link a:hover {
+.demo-link a:hover,
+.demo-link button:hover,
+.back-button:hover {
   background: #2a3140;
 }
 
 .demo-spec-controls > button {
   min-width: 64px;
+}
+
+.demo-or {
+  color: #9ca3af;
+  font-size: 13px;
 }
 
 .example-picker {
@@ -164,21 +380,65 @@ body {
   background: #eef6ff;
 }
 
-.demo-or {
-  color: #9ca3af;
-  font-size: 13px;
+.api-error {
+  position: absolute;
+  top: 58px;
+  right: 16px;
+  z-index: 30;
+  max-width: 520px;
 }
 
-.demo-link {
-  justify-content: flex-end;
+.api-management-main {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: 420px minmax(0, 1fr);
+  background: #eef2f7;
 }
 
-.demo-link a {
-  display: inline-flex;
+.source-editor-panel {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: #ffffff;
+  border-right: 1px solid #d8e0eb;
+}
+
+.source-editor-heading {
+  display: flex;
+  height: 52px;
+  flex: 0 0 52px;
   align-items: center;
-  text-decoration: none;
+  justify-content: space-between;
+  padding: 0 14px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
+.source-editor-heading span {
+  padding: 5px 8px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.source-editor-panel textarea {
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  padding: 14px;
+  color: #0f172a;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  resize: none;
+  border: 0;
+  outline: none;
+}
+
+.project-docs-panel,
 .demo-docs {
   min-height: 0;
   flex: 1;
@@ -219,29 +479,18 @@ body {
 }
 
 @media (max-width: 960px) {
-  .demo-navbar {
-    height: auto;
-    min-height: 96px;
-    padding: 10px 14px;
-    flex-wrap: wrap;
-    gap: 10px;
+  body {
+    overflow: auto;
   }
 
-  .demo-navbar-third {
-    width: 100%;
+  .project-management-grid,
+  .api-management-main {
+    grid-template-columns: 1fr;
   }
 
-  .demo-title,
-  .demo-link {
-    justify-content: center;
-  }
-
-  .demo-spec-controls {
-    flex-wrap: wrap;
-  }
-
-  .demo-spec-controls input {
-    width: 100%;
-    min-width: 0;
+  .source-editor-panel {
+    min-height: 420px;
+    border-right: 0;
+    border-bottom: 1px solid #d8e0eb;
   }
 }
