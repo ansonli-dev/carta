@@ -8,6 +8,7 @@ worktrees
 worktrees/
 data/
 tmp/
+logs/
 *.log
 .env
 .env.local

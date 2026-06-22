@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: carta
+      POSTGRES_PASSWORD: carta
+      POSTGRES_DB: carta
+    ports:
+      - "5432:5432"
+    volumes:
+      - carta-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carta -d carta"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  carta-postgres:

@@ -1,0 +1,40 @@
+{
+  "name": "@carta/api",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "migrate": "node-pg-migrate up -m ../../migrations --database-url \"${DATABASE_URL:-postgres://carta:carta@localhost:5432/carta}\""
+  },
+  "dependencies": {
+    "@apidevtools/swagger-parser": "^12.1.0",
+    "@nestjs/common": "^11.1.27",
+    "@nestjs/core": "^11.1.27",
+    "@nestjs/platform-fastify": "^11.1.27",
+    "@stoplight/prism-cli": "^5.15.11",
+    "fastify": "^5.8.5",
+    "kysely": "^0.29.2",
+    "nanoid": "^5.1.15",
+    "pg": "^8.22.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.1.27",
+    "@types/node": "^26.0.0",
+    "@types/pg": "^8.20.0",
+    "@types/supertest": "^7.2.0",
+    "node-pg-migrate": "^8.0.4",
+    "supertest": "^7.2.2",
+    "tsx": "^4.19.2",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

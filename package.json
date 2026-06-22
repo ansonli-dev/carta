@@ -1,0 +1,19 @@
+{
+  "name": "carta",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "dev:api": "npm run dev -w @carta/api",
+    "dev:web": "npm run dev -w @carta/web",
+    "db:up": "docker compose up -d postgres",
+    "db:migrate": "npm run migrate -w @carta/api"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
