@@ -179,6 +179,28 @@ export class ProjectsService {
     return revision.raw_content;
   }
 
+  async getLatestMockInput(projectId: string) {
+    const version = await this.findCurrentVersion(projectId);
+    const revision = await this.db
+      .selectFrom("source_revisions")
+      .select(["id", "raw_content"])
+      .where("api_version_id", "=", version.id)
+      .orderBy("created_at", "desc")
+      .orderBy("id", "desc")
+      .executeTakeFirst();
+
+    if (!revision) {
+      throw new NotFoundException("OpenAPI source not found");
+    }
+
+    return {
+      projectId,
+      apiVersionId: version.id,
+      revisionId: revision.id,
+      rawContent: revision.raw_content,
+    };
+  }
+
   private async findCurrentVersion(projectId: string) {
     const version = await this.db
       .selectFrom("api_versions")
