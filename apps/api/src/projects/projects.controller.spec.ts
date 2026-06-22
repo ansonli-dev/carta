@@ -50,6 +50,9 @@ describe("Projects API", () => {
       .expect(201);
 
     expect(revisionResponse.body.parseStatus).toBe("valid");
+
+    const projects = await request(app.getHttpServer()).get("/api/projects").expect(200);
+    expect(projects.body[0].tags).toEqual([]);
   });
 
   test.skipIf(!hasDatabaseUrl)("returns endpoint catalog and latest OpenAPI source for docs", async () => {
@@ -72,7 +75,12 @@ describe("Projects API", () => {
     const endpoints = await request(app.getHttpServer())
       .get(`/api/projects/${projectResponse.body.id}/endpoints`)
       .expect(200);
-    expect(endpoints.body[0]).toMatchObject({ path: "/todos", method: "GET", operation_id: "listTodos" });
+    expect(endpoints.body[0]).toMatchObject({
+      path: "/todos",
+      method: "GET",
+      operation_id: "listTodos",
+      tags: [],
+    });
 
     const source = await request(app.getHttpServer())
       .get(`/api/projects/${projectResponse.body.id}/docs/openapi.yaml`)

@@ -39,7 +39,7 @@ export class ProjectsService {
           code: input.code,
           owner_team: input.ownerTeam,
           source_mode: input.sourceMode,
-          tags: [],
+          tags: JSON.stringify([]),
           created_at: now,
           updated_at: now,
         })
@@ -116,7 +116,7 @@ export class ProjectsService {
           parsed_document: parsed.document,
           content_hash: contentHash,
           parse_status: "valid",
-          parse_errors: [],
+          parse_errors: JSON.stringify([]),
           created_at: createdAt,
         })
         .execute();
@@ -134,7 +134,7 @@ export class ProjectsService {
               method: endpoint.method,
               operation_id: endpoint.operationId,
               summary: endpoint.summary,
-              tags: endpoint.tags,
+              tags: JSON.stringify(endpoint.tags),
               deprecated: endpoint.deprecated,
             })),
           )
