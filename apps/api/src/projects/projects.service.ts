@@ -76,28 +76,36 @@ export class ProjectsService {
   }
 
   async saveRevision(projectId: string, input: SaveRevisionInput) {
-    const version = await this.db
-      .selectFrom("api_versions")
-      .innerJoin("api_projects", "api_projects.id", "api_versions.project_id")
-      .select(["api_versions.id"])
-      .where("api_projects.id", "=", projectId)
-      .orderBy("api_versions.created_at", "desc")
-      .executeTakeFirst();
-
-    if (!version) {
-      throw new NotFoundException("Project not found");
-    }
+    const version = await this.findCurrentVersion(projectId);
 
     const parsed = await this.openapi.parse(input.rawContent);
     if (parsed.status === "invalid") {
       throw new UnprocessableEntityException({ errors: parsed.errors });
     }
 
-    const now = new Date();
     const revisionId = `rev_${nanoid(12)}`;
     const contentHash = createHash("sha256").update(input.rawContent).digest("hex");
 
     await this.db.transaction().execute(async (trx) => {
+      await trx
+        .selectFrom("api_versions")
+        .select(["id"])
+        .where("id", "=", version.id)
+        .forUpdate()
+        .executeTakeFirstOrThrow();
+
+      let createdAt = new Date();
+      const latestRevision = await trx
+        .selectFrom("source_revisions")
+        .select(["created_at"])
+        .where("api_version_id", "=", version.id)
+        .orderBy("created_at", "desc")
+        .executeTakeFirst();
+
+      if (latestRevision && latestRevision.created_at >= createdAt) {
+        createdAt = new Date(latestRevision.created_at.getTime() + 1);
+      }
+
       await trx
         .insertInto("source_revisions")
         .values({
@@ -109,7 +117,7 @@ export class ProjectsService {
           content_hash: contentHash,
           parse_status: "valid",
           parse_errors: [],
-          created_at: now,
+          created_at: createdAt,
         })
         .execute();
 
@@ -140,5 +148,50 @@ export class ProjectsService {
       title: parsed.title,
       version: parsed.version,
     };
+  }
+
+  async listEndpoints(projectId: string) {
+    const version = await this.findCurrentVersion(projectId);
+
+    return this.db
+      .selectFrom("api_endpoints")
+      .selectAll()
+      .where("api_version_id", "=", version.id)
+      .orderBy("path", "asc")
+      .orderBy("method", "asc")
+      .execute();
+  }
+
+  async getLatestOpenApiSource(projectId: string) {
+    const version = await this.findCurrentVersion(projectId);
+    const revision = await this.db
+      .selectFrom("source_revisions")
+      .select(["raw_content"])
+      .where("api_version_id", "=", version.id)
+      .orderBy("created_at", "desc")
+      .orderBy("id", "desc")
+      .executeTakeFirst();
+
+    if (!revision) {
+      throw new NotFoundException("OpenAPI source not found");
+    }
+
+    return revision.raw_content;
+  }
+
+  private async findCurrentVersion(projectId: string) {
+    const version = await this.db
+      .selectFrom("api_versions")
+      .select(["id"])
+      .where("project_id", "=", projectId)
+      .orderBy("created_at", "desc")
+      .orderBy("id", "desc")
+      .executeTakeFirst();
+
+    if (!version) {
+      throw new NotFoundException("Project not found");
+    }
+
+    return version;
   }
 }

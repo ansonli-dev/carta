@@ -10,7 +10,7 @@ import { DATABASE } from "../database/database.module.js";
 describe("Projects API", () => {
   let app: NestFastifyApplication;
   let db: Kysely<CartaDatabase>;
-  let createdProjectId: string | null = null;
+  let createdProjectIds: string[] = [];
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
@@ -22,11 +22,11 @@ describe("Projects API", () => {
 
   afterEach(async () => {
     try {
-      if (createdProjectId) {
-        await db.deleteFrom("api_projects").where("id", "=", createdProjectId).execute();
+      if (createdProjectIds.length > 0) {
+        await db.deleteFrom("api_projects").where("id", "in", createdProjectIds).execute();
       }
     } finally {
-      createdProjectId = null;
+      createdProjectIds = [];
       await app.close();
     }
   });
@@ -37,7 +37,7 @@ describe("Projects API", () => {
       .post("/api/projects")
       .send({ name: "Todo API", code: `todo-${suffix}`, ownerTeam: "platform", sourceMode: "standalone" })
       .expect(201);
-    createdProjectId = projectResponse.body.id;
+    createdProjectIds.push(projectResponse.body.id);
 
     const revisionResponse = await request(app.getHttpServer())
       .post(`/api/projects/${projectResponse.body.id}/revisions`)
@@ -48,5 +48,33 @@ describe("Projects API", () => {
       .expect(201);
 
     expect(revisionResponse.body.parseStatus).toBe("valid");
+  });
+
+  test("returns endpoint catalog and latest OpenAPI source for docs", async () => {
+    const suffix = Date.now().toString(36);
+    const projectResponse = await request(app.getHttpServer())
+      .post("/api/projects")
+      .send({ name: "Todo API", code: `todo-docs-${suffix}`, ownerTeam: "platform", sourceMode: "standalone" })
+      .expect(201);
+    createdProjectIds.push(projectResponse.body.id);
+
+    await request(app.getHttpServer())
+      .post(`/api/projects/${projectResponse.body.id}/revisions`)
+      .send({
+        sourceMode: "standalone",
+        rawContent:
+          "openapi: 3.0.3\ninfo:\n  title: Todo API\n  version: 1.0.0\npaths:\n  /todos:\n    get:\n      operationId: listTodos\n      responses:\n        '200':\n          description: OK\n",
+      })
+      .expect(201);
+
+    const endpoints = await request(app.getHttpServer())
+      .get(`/api/projects/${projectResponse.body.id}/endpoints`)
+      .expect(200);
+    expect(endpoints.body[0]).toMatchObject({ path: "/todos", method: "GET", operation_id: "listTodos" });
+
+    const source = await request(app.getHttpServer())
+      .get(`/api/projects/${projectResponse.body.id}/docs/openapi.yaml`)
+      .expect(200);
+    expect(source.text).toContain("title: Todo API");
   });
 });

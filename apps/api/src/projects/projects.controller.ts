@@ -31,4 +31,14 @@ export class ProjectsController {
   saveRevision(@Param("projectId") projectId: string, @Body() body: SaveRevisionBody) {
     return this.projects.saveRevision(projectId, body);
   }
+
+  @Get(":projectId/endpoints")
+  listEndpoints(@Param("projectId") projectId: string) {
+    return this.projects.listEndpoints(projectId);
+  }
+
+  @Get(":projectId/docs/openapi.yaml")
+  getLatestOpenApiSource(@Param("projectId") projectId: string) {
+    return this.projects.getLatestOpenApiSource(projectId);
+  }
 }
