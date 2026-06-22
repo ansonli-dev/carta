@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.vite/
+.worktrees
+.worktrees/
+worktrees
+worktrees/
+data/
+tmp/
+*.log
+.env
+.env.local
+.DS_Store
