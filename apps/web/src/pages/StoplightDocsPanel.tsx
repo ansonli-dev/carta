@@ -1,0 +1,82 @@
+import { useEffect, useRef, useState } from "react";
+import { Alert, Empty, Spin } from "antd";
+
+type ElementsApiElement = HTMLElement & {
+  apiDescriptionDocument?: string;
+};
+
+type StoplightDocsPanelProps = {
+  source: string;
+};
+
+export function StoplightDocsPanel({ source }: StoplightDocsPanelProps) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const elementRef = useRef<ElementsApiElement | null>(null);
+  const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
+
+  useEffect(() => {
+    if (import.meta.env.MODE === "test") {
+      setState("ready");
+      return;
+    }
+
+    let cancelled = false;
+
+    async function mountElement() {
+      try {
+        await import("@stoplight/elements/web-components.min.js");
+
+        if (cancelled || !hostRef.current) {
+          return;
+        }
+
+        hostRef.current.replaceChildren();
+
+        const element = document.createElement("elements-api") as ElementsApiElement;
+        element.setAttribute("router", "memory");
+        element.setAttribute("layout", "sidebar");
+        element.setAttribute("hideTryItPanel", "true");
+        element.apiDescriptionDocument = source;
+        elementRef.current = element;
+        hostRef.current.appendChild(element);
+        setState("ready");
+      } catch {
+        if (!cancelled) {
+          setState("failed");
+        }
+      }
+    }
+
+    void mountElement();
+
+    return () => {
+      cancelled = true;
+      elementRef.current = null;
+      hostRef.current?.replaceChildren();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (elementRef.current) {
+      elementRef.current.apiDescriptionDocument = source;
+    }
+  }, [source]);
+
+  if (import.meta.env.MODE === "test") {
+    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Documentation preview" />;
+  }
+
+  return (
+    <div className="stoplight-docs-shell">
+      {state === "loading" ? (
+        <div className="docs-loading">
+          <Spin size="small" />
+        </div>
+      ) : null}
+      {state === "failed" ? (
+        <Alert type="warning" showIcon title="Documentation preview could not be loaded" />
+      ) : null}
+      <div ref={hostRef} className={state === "ready" ? "stoplight-docs-host ready" : "stoplight-docs-host"} />
+    </div>
+  );
+}

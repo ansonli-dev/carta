@@ -2,6 +2,7 @@ import Editor from "@monaco-editor/react";
 import { Alert, Button, Empty, Space, Statistic, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import type { Endpoint, Project } from "../api/client";
+import { StoplightDocsPanel } from "./StoplightDocsPanel";
 
 type ProjectPageProps = {
   project?: Project;
@@ -176,32 +177,7 @@ export function ProjectPage({
             </div>
             <div className="docs-body">
               {canStartMock ? (
-                <div className="reference-preview">
-                  <div className="reference-hero">
-                    <Typography.Title level={4}>{project.name}</Typography.Title>
-                    <Typography.Text type="secondary">v1.0.0</Typography.Text>
-                  </div>
-                  <div className="reference-section">
-                    <Typography.Text className="panel-kicker">API Base URL</Typography.Text>
-                    <code>{mockUrl ?? "http://127.0.0.1:5100"}</code>
-                  </div>
-                  <div className="reference-section">
-                    <Typography.Text className="panel-kicker">Endpoints</Typography.Text>
-                    <div className="reference-endpoints">
-                      {endpoints.length > 0 ? (
-                        endpoints.map((endpoint) => (
-                          <div className="reference-endpoint" key={endpoint.id ?? `${endpoint.method}:${endpoint.path}`}>
-                            <Tag color="blue">{endpoint.method}</Tag>
-                            <span>{endpoint.path}</span>
-                            <Typography.Text type="secondary">{endpoint.operation_id || "operation"}</Typography.Text>
-                          </div>
-                        ))
-                      ) : (
-                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <StoplightDocsPanel source={source} />
               ) : (
                 <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No saved reference" />
               )}
