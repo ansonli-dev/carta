@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Post } from "@nestjs/common";
 import { ProjectsService } from "./projects.service.js";
 
 type CreateProjectBody = {
@@ -15,7 +15,7 @@ type SaveRevisionBody = {
 
 @Controller("/api/projects")
 export class ProjectsController {
-  constructor(private readonly projects: ProjectsService) {}
+  constructor(@Inject(ProjectsService) private readonly projects: ProjectsService) {}
 
   @Get()
   listProjects() {

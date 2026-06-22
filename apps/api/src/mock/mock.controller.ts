@@ -1,12 +1,12 @@
-import { Controller, Get, Param, Post } from "@nestjs/common";
+import { Controller, Get, Inject, Param, Post } from "@nestjs/common";
 import { ProjectsService } from "../projects/projects.service.js";
 import { MockService } from "./mock.service.js";
 
 @Controller("/api")
 export class MockController {
   constructor(
-    private readonly projects: ProjectsService,
-    private readonly mock: MockService,
+    @Inject(ProjectsService) private readonly projects: ProjectsService,
+    @Inject(MockService) private readonly mock: MockService,
   ) {}
 
   @Post("projects/:projectId/mock/start")

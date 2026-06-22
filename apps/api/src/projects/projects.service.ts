@@ -22,7 +22,7 @@ type SaveRevisionInput = {
 export class ProjectsService {
   constructor(
     @Inject(DATABASE) private readonly db: Kysely<CartaDatabase>,
-    private readonly openapi: OpenApiService,
+    @Inject(OpenApiService) private readonly openapi: OpenApiService,
   ) {}
 
   async createProject(input: CreateProjectInput) {
