@@ -1018,18 +1018,215 @@ Important: These are not removed from the design. They are deferred delivery ite
 
 ---
 
-## 13. Open Questions
+## 13. Resolved Product Decisions
 
-1. Which OpenAPI versions must be supported first: OpenAPI 3.0 only, or 3.0 and 3.1?
-2. Should Swagger/OpenAPI 2.0 be supported for import, migration, or not at all?
-3. Which Git provider should be implemented first for MR/PR integration?
-4. Should the first Git writeback implementation use direct commit, branch commit, or both?
-5. Should standalone projects support multiple files and `$ref` across files in the first release?
-6. Should Markdown guide pages be part of this platform, or only API reference documentation?
-7. Should mock instances be shared platform services, per-user processes, or project-level managed processes?
-8. What is the expected maximum OpenAPI file size and endpoint count?
-9. What authentication mechanism should be used for the internal web console?
-10. Which API style rules must be part of the first organization-level Spectral ruleset?
+This section resolves the original open questions and turns them into design decisions.
+
+### 13.1 OpenAPI Version Support
+
+Decision:
+
+- OpenAPI 3.0 and 3.1 are first-class supported versions.
+- OpenAPI 3.0 is the minimum required target for authoring, validation, documentation, mock, diff, and lint.
+- OpenAPI 3.1 must be accepted by the source model, parser, editor, docs renderer, and validation pipeline.
+- When an external component has partial 3.1 support, the platform must show the degraded capability clearly instead of silently treating 3.1 as 3.0.
+
+Rationale:
+
+OpenAPI 3.0 remains widely used, while 3.1 is the correct forward-looking target. Supporting both avoids forcing teams into unnecessary migration while keeping the platform future-proof.
+
+### 13.2 Swagger / OpenAPI 2.0 Support
+
+Decision:
+
+- Swagger/OpenAPI 2.0 is supported for import and migration only.
+- New authoring should not create Swagger 2.0 documents.
+- Imported Swagger 2.0 files should be converted to OpenAPI 3.x before becoming an editable platform source.
+- The original 2.0 file may be retained as an import artifact for traceability.
+
+Rationale:
+
+This keeps legacy migration practical without allowing the platform to split its authoring, mock, diff, and governance model across old and new contract formats.
+
+### 13.3 First Git Provider for MR/PR Integration
+
+Decision:
+
+- The Git abstraction must support generic Git operations first: clone, fetch, checkout, branch, commit, and push over SSH/HTTPS.
+- GitLab should be the first provider-specific MR integration.
+- GitHub should be the second provider-specific PR integration.
+- Other providers can be added through provider adapters.
+
+Rationale:
+
+Internal self-hosted environments commonly use GitLab, and GitLab MR integration usually delivers the highest value for enterprise/internal deployment. Generic Git support comes first so source-of-truth behavior does not depend on one vendor API.
+
+### 13.4 First Git Writeback Implementation
+
+Decision:
+
+- The first Git writeback implementation should support both Direct Commit and Branch Commit.
+- Merge Request / Pull Request creation is part of the full design but should be implemented after basic Git synchronization is stable.
+
+Writeback behavior:
+
+| Policy | First Git Implementation | Notes |
+|---|---:|---|
+| Direct Commit | Yes | Best for small internal teams and low-ceremony projects |
+| Branch Commit | Yes | Safer default for team collaboration |
+| MR/PR | Later | Requires provider-specific integration and review-state mapping |
+
+Recommended default:
+
+- New Git-connected projects should default to Branch Commit.
+- Direct Commit may be enabled per project by Platform Admin or API Reviewer.
+
+Rationale:
+
+Branch Commit provides a safer collaboration path without requiring MR/PR APIs immediately. Direct Commit remains useful for internal prototypes and low-risk projects.
+
+### 13.5 Multi-file OpenAPI and `$ref`
+
+Decision:
+
+- The product model must support multi-file OpenAPI projects and relative `$ref` across files.
+- Git-connected projects should preserve the repository file layout.
+- Standalone/uploaded projects should support both single-file upload and archive upload, such as `.zip`, for multi-file specs.
+- The platform should maintain one root OpenAPI entry file per API Version.
+
+Implementation guidance:
+
+- MVP may start with a single root file plus local relative `$ref` resolution.
+- Full authoring should add a project file tree, file-level editor, rename/move support, and broken-reference detection.
+- Remote HTTP `$ref` may be read-only or disabled by policy in internal deployments.
+
+Rationale:
+
+Real OpenAPI projects often split schemas and paths across files. The source model should support this early to avoid later migration pain.
+
+### 13.6 Markdown Guide Pages
+
+Decision:
+
+- Markdown guide pages are part of the full platform design.
+- API reference documentation remains generated from OpenAPI.
+- Markdown pages are optional companion content for guides, onboarding, changelog notes, migration instructions, and domain explanations.
+- Markdown content should be stored in the same source mode as the API project:
+  - platform source store for standalone/uploaded projects;
+  - Git repository for Git-connected projects.
+
+Documentation structure:
+
+```text
+API Docs
+  Overview / Guide pages      optional Markdown
+  API Reference               generated from OpenAPI
+  Schemas                     generated from OpenAPI
+  Changelog / Migration notes optional Markdown or generated diff summary
+```
+
+Rationale:
+
+Generated API reference is necessary but not sufficient for internal consumers. Guide pages help explain workflows, business context, migration steps, and usage conventions without turning the platform into a public developer portal.
+
+### 13.7 Mock Instance Ownership Model
+
+Decision:
+
+- Mock instances are project-level managed services by default.
+- A mock instance is bound to API Project, API Version, Source Revision, and environment.
+- Per-user mock instances are not the default model.
+- Per-branch or per-revision mock instances are supported by the design for Git-connected workflows.
+
+Recommended environments:
+
+| Environment | Purpose |
+|---|---|
+| `draft` | Maintainer preview while editing |
+| `review` | Stable mock for reviewers and consumers during API review |
+| `released` | Stable mock for a released API version |
+
+Rationale:
+
+Project-level mocks are easier for frontend, QA, and BA users to share. Per-user mocks create more operational complexity and make URLs less predictable.
+
+### 13.8 Expected OpenAPI Size and Scale
+
+Decision:
+
+The platform should optimize for medium-to-large internal service APIs.
+
+Performance targets:
+
+| Size Class | Raw Spec Size | Operation Count | Schema Count | Expected Behavior |
+|---|---:|---:|---:|---|
+| Small | <= 1 MB | <= 100 | <= 100 | synchronous parse and preview |
+| Medium | <= 5 MB | <= 500 | <= 500 | synchronous or near-sync parse under normal load |
+| Large | <= 10 MB | <= 1,000 | <= 1,000 | async parse allowed; UI shows progress |
+| Extra Large | > 10 MB | > 1,000 | > 1,000 | supported by configuration; may require async-only processing |
+
+Default limits:
+
+- Soft warning: 10 MB raw source or 1,000 operations.
+- Default hard limit: 25 MB raw source or 2,500 operations.
+- Hard limits must be configurable by Platform Admin.
+
+Rationale:
+
+The platform should comfortably handle normal service-level APIs and avoid pretending that very large monolithic specs behave like small files.
+
+### 13.9 Authentication Mechanism
+
+Decision:
+
+- OIDC should be the primary authentication mechanism for the internal web console.
+- Local username/password should exist only for bootstrap, local development, or emergency admin access.
+- SAML and LDAP can be supported later through the same identity-provider abstraction if needed.
+
+Authorization:
+
+- Persona-based RBAC uses API Consumer, API Maintainer, API Reviewer, and Platform Admin.
+- Project-level access control is part of the full design.
+- MVP may start with a simplified authenticated user model if the deployment is trusted, but the permission model must not require redesign later.
+
+Rationale:
+
+OIDC fits most modern internal identity systems and avoids building a custom identity platform. Local login is useful for development and break-glass operations, but should not be the main enterprise auth path.
+
+### 13.10 First Organization-level Spectral Ruleset
+
+Decision:
+
+The first organization-level ruleset should be strict enough to improve contract quality but not so strict that teams cannot migrate existing APIs.
+
+Initial rule severities:
+
+| Rule | Severity | Notes |
+|---|---|---|
+| `info.title` is required | error | Required for catalog display |
+| `info.version` is required | error | Required for version tracking |
+| Every operation has `operationId` | error | Required for search, SDK, and diff readability |
+| Every operation has `tags` | warning | Helps catalog grouping |
+| Every operation has `summary` | warning | Helps docs readability |
+| Every operation defines success response schema when response has body | error | Required for docs and mock |
+| Request body must define schema when body exists | error | Required for validation and mock |
+| `$ref` targets must resolve | error | Prevents broken docs, mock, and diff |
+| Standard error response shape is used for 4xx/5xx | warning initially, error later | Migration-friendly |
+| Pagination uses standard pagination model | warning initially, error by project policy | Applies only to list endpoints |
+| Time fields use `date-time` format | warning | Can be promoted later |
+| Response must not be a naked top-level array | warning | Encourages extensible response envelopes |
+| Ambiguous property names such as `data`, `info`, `obj` are discouraged | info initially | Needs local naming guidance before becoming strict |
+| Sensitive-looking examples are flagged | warning | Prevents tokens, passwords, secrets in examples |
+
+Promotion policy:
+
+- Start migration-heavy rules as `info` or `warning`.
+- Promote to `error` after teams have cleanup time and an exception process.
+- Project-level overrides must be explicit and auditable.
+
+Rationale:
+
+The first ruleset should protect the platform's generated docs, mock, search, and diff features while still allowing existing teams to onboard without a large up-front cleanup project.
 
 ---
 
