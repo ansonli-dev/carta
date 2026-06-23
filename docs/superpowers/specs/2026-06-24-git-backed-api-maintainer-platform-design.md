@@ -4,7 +4,7 @@ Date: 2026-06-24
 
 ## Product Positioning
 
-Carta MVP is a Git-backed API management and mock server platform for backend API owners and API maintainers. It is not a generic project CRUD tool and it is not a full Stoplight clone. The product helps a team create, edit, publish, and mock OpenAPI contracts while keeping the OpenAPI file in the code repository as the final source of truth.
+Carta MVP is a Git-backed API management, mock server, and contract testing platform for backend API owners and API maintainers. It is not a generic project CRUD tool and it is not a full Stoplight or PactFlow clone. The product helps a team create, edit, publish, mock, and verify OpenAPI contracts while keeping the OpenAPI file in the code repository as the final source of truth.
 
 The core loop is:
 
@@ -16,11 +16,12 @@ Account and workspace
 -> Commit OpenAPI file to Git
 -> Publish docs
 -> Operate mock server
+-> Verify consumer/provider compatibility
 ```
 
 ## Primary User
 
-The primary user is an API maintainer: usually a backend engineer, platform engineer, or technical owner of a service API. This user needs to maintain OpenAPI contracts with enough structure that request and response design is reliable, then expose useful mock endpoints for frontend teams, QA, integration tests, and partner development before the real backend is ready.
+The primary user is an API maintainer: usually a backend engineer, platform engineer, or technical owner of a service API. This user needs to maintain OpenAPI contracts with enough structure that request and response design is reliable, expose useful mock endpoints for frontend teams, QA, integration tests, and partner development before the real backend is ready, and know whether consumers and providers are compatible before releasing.
 
 Secondary users are reviewers and consumers who need to read published docs or call a mock server. They are supported through workspace access and published docs visibility, but they are not the main editing audience for MVP.
 
@@ -30,9 +31,11 @@ Secondary users are reviewers and consumers who need to read published docs or c
 - Support connecting an existing OpenAPI file from Git and maintaining it through Carta.
 - Make request and response design a first-class workflow, not an afterthought.
 - Make mock server operation a first-class workflow alongside API management.
+- Make contract testing a first-class workflow alongside API management and mock server operation.
 - Keep Git as the final source of truth for OpenAPI files.
 - Publish docs and mock servers from stable published revisions, not from unsaved drafts.
 - Provide practical mock controls: examples, scenario selection, validation mode, latency, error simulation, and request logs.
+- Track provider contracts, consumer contracts, verification results, environments, and deployability decisions.
 - Provide a real account, workspace, invitation, and role model so access control is meaningful.
 - Keep the MVP focused enough to implement cleanly while preserving data model extension points for future source modes.
 
@@ -48,6 +51,9 @@ Secondary users are reviewers and consumers who need to read published docs or c
 - Multi-file documentation sites beyond the OpenAPI-backed API docs surface.
 - Full mock analytics or load testing.
 - Stateful mock workflows that require durable business-state simulation.
+- Full Pact Broker compatibility or every Pact CLI endpoint.
+- Event-driven, GraphQL, gRPC, and protobuf contract testing in MVP.
+- AI-generated contract tests in MVP.
 
 ## Information Architecture
 
@@ -59,6 +65,7 @@ Workspace
 Projects
 Project Overview
 API Studio / Published Docs / Mock Server / Git Sync / Settings
+Contract Tests
 ```
 
 The user enters through authentication, lands in a workspace, selects or creates a project, then manages one or more API sources inside that project. MVP can expose one API source per project in the UI, but the data model must not prevent multiple sources later.
@@ -196,6 +203,80 @@ openapi_indexes
 - summary
 - search_text
 - created_at
+
+contract_participants
+- id
+- workspace_id
+- project_id
+- name
+- kind: provider | consumer
+- repository_url
+- created_by
+- created_at
+- updated_at
+
+consumer_contracts
+- id
+- workspace_id
+- provider_project_id
+- consumer_participant_id
+- provider_participant_id
+- format: pact_v3 | pact_v4 | http_interactions
+- version
+- branch
+- commit_sha
+- environment
+- raw_contract
+- parsed_summary
+- status: published | invalid
+- created_by
+- created_at
+
+provider_contracts
+- id
+- api_source_id
+- source_revision_id
+- provider_participant_id
+- version
+- branch
+- commit_sha
+- environment
+- openapi_snapshot
+- status: published | invalid
+- created_at
+
+contract_verification_results
+- id
+- provider_contract_id
+- consumer_contract_id
+- status: passed | failed | unknown
+- verification_type: static_openapi_compatibility | live_provider_verification | self_reported
+- summary
+- mismatches
+- provider_base_url
+- ci_build_url
+- verified_by
+- verified_at
+- created_at
+
+contract_environments
+- id
+- workspace_id
+- name
+- description
+- created_at
+- updated_at
+
+contract_deployments
+- id
+- participant_id
+- version
+- environment
+- branch
+- commit_sha
+- deployed_at
+- created_by
+- created_at
 ```
 
 `source_mode` supports the confirmed MVP modes and keeps room for future modes:
@@ -322,6 +403,22 @@ User opens Mock Server
 ```
 
 Mock server is a primary product surface. It should help teams use the API contract before implementation is complete, not merely prove that a mock process can start.
+
+### 7. Verify Contract Compatibility
+
+Carta contract testing is centered on the API provider project, but it tracks both sides of the integration.
+
+```text
+Provider API source is synced to Git
+-> Carta records a provider contract from the published OpenAPI revision
+-> Consumer CI or user uploads a consumer contract
+-> Carta compares consumer expectations with provider OpenAPI capabilities
+-> Carta records a verification result
+-> User opens Contract Tests to inspect compatibility, mismatches, and deployability
+-> CI can query "can-i-deploy" for a participant version and environment
+```
+
+MVP focuses on HTTP/REST APIs. The primary compatibility mode is bi-directional static verification: consumer interactions are checked against the provider OpenAPI contract. Provider teams can later add live provider verification by publishing CI results or pointing Carta at a provider base URL, but static OpenAPI compatibility is the first path because it fits the API management workflow.
 
 ## Key Screens
 
@@ -456,6 +553,32 @@ Primary tabs:
 
 MVP does not need full analytics, but request logs are not optional because they are essential for debugging mock behavior.
 
+### Contract Tests
+
+Contract Tests is the third core product surface. It should feel closer to PactFlow's application-centric model than to a generic test-run table: the user starts from the provider API, sees connected consumers, and understands which versions are compatible.
+
+Contract Tests shows:
+
+- provider participant and linked API source
+- provider contract versions from published OpenAPI revisions
+- connected consumer participants
+- latest consumer contracts by branch, version, commit, and environment
+- verification matrix by consumer version and provider version
+- mismatch details grouped by operation, request, response, header, parameter, and schema
+- deployability result for a selected participant version and target environment
+- CI publishing instructions and API tokens
+
+Primary tabs:
+
+- Overview: current compatibility status, connected consumers, latest provider contract, latest failures.
+- Matrix: consumer/provider version compatibility table.
+- Consumer Contracts: published consumer contracts, raw contract download, parse status.
+- Verification Results: passed/failed/unknown results, mismatch details, CI links.
+- Environments: known deployments and releases by participant.
+- CI Setup: publish contract, publish verification, can-i-deploy examples.
+
+The first MVP does not need to run arbitrary test suites. It should store contracts and verification results, run static compatibility checks against OpenAPI, and expose an API/CLI-friendly path for CI systems.
+
 ### Workspace Settings
 
 Workspace Settings includes:
@@ -577,6 +700,59 @@ https://carta.example.com/mocks/:workspaceSlug/:projectSlug/:apiSlug
 
 Default calls use the active scenario. Scenario-specific calls use the same base URL with a scenario header or query parameter so client integrations do not need different mock hosts.
 
+## Contract Testing Behavior
+
+Contract testing is generated from versioned artifacts, not from mutable drafts.
+
+Provider contracts:
+
+- A successful Git sync creates an API source revision.
+- Publishing docs/mock creates a published revision.
+- Carta records a provider contract from that published OpenAPI snapshot.
+- Provider contract metadata includes branch, commit SHA, version, and environment when known.
+
+Consumer contracts:
+
+- MVP accepts Pact V3/V4 JSON as the main consumer contract format.
+- MVP also accepts a simple Carta HTTP interaction JSON format for teams that do not use Pact yet.
+- Consumer contracts can be uploaded through UI, API, or CI script.
+- Each consumer contract must identify consumer name, provider name, consumer version, branch, commit SHA, and optional environment.
+
+Static OpenAPI compatibility:
+
+- Every consumer interaction must map to a provider OpenAPI path and method.
+- Consumer path, query, header, and body expectations must be allowed by the OpenAPI request definition.
+- Expected response status codes must exist in the OpenAPI operation.
+- Expected response body fields must be compatible with the OpenAPI response schema.
+- Extra fields are treated according to schema strictness. If the provider schema allows additional properties, Carta should not fail on unknown fields.
+- Mismatches should point to the exact operation and field path.
+
+Verification result states:
+
+- `passed`: the consumer contract is compatible with the provider contract.
+- `failed`: at least one blocking mismatch exists.
+- `unknown`: no verification exists for the requested pair.
+
+Can-i-deploy behavior:
+
+```text
+participant + version + target environment
+-> find related consumers/providers for that participant
+-> find latest relevant provider and consumer contracts for the target environment or branch
+-> require passed verification results for every required integration
+-> return pass, fail, or unknown with reasons
+```
+
+MVP should support GitLab CI by exposing HTTP endpoints or a small scriptable command that can:
+
+- publish a consumer contract
+- publish a provider contract if needed
+- publish a live provider verification result
+- query can-i-deploy
+- record a deployment to an environment
+
+Contract testing complements the mock server. Mock examples help teams develop against a contract; contract tests answer whether released consumer and provider versions are compatible.
+
 ## Error Handling
 
 Account and access errors:
@@ -606,6 +782,15 @@ Publish and mock errors:
 - failed publish or mock build marks the project as degraded
 - users can retry publish or mock build from Project Overview or Mock Server
 
+Contract testing errors:
+
+- invalid consumer contract payload is rejected with parse errors
+- missing consumer/provider identity blocks publication
+- unsupported contract format is rejected with setup guidance
+- compatibility mismatches are recorded as failed verification results, not generic server errors
+- can-i-deploy returns `unknown` when required contracts or verification results are missing
+- CI publishing requests without a valid token are rejected
+
 ## Audit And Events
 
 Important actions should produce audit or event records:
@@ -617,6 +802,11 @@ Important actions should produce audit or event records:
 - Git sync pull or push
 - published revision created
 - mock server built or failed
+- consumer contract published
+- provider contract published
+- contract verification passed or failed
+- can-i-deploy queried
+- deployment recorded
 
 ```text
 git_sync_events
@@ -665,6 +855,13 @@ audit_events
 - Maintainers can map operations to response examples for mock behavior.
 - Maintainers can configure basic latency and error simulation.
 - Maintainers and viewers can inspect recent mock request logs.
+- A published OpenAPI revision creates a provider contract version.
+- A consumer contract can be published through API or UI with consumer name, provider name, version, branch, and commit SHA.
+- Carta runs static OpenAPI compatibility checks between consumer contracts and provider contracts.
+- Contract mismatches show operation-level and field-level details.
+- Contract Tests shows consumer/provider compatibility matrix.
+- CI can query can-i-deploy for a participant version and target environment.
+- Deployments to environments can be recorded for contract deployability decisions.
 - Private docs and mock URLs require workspace membership.
 - Public docs and mock URLs are accessible by link.
 
@@ -744,3 +941,18 @@ Production-oriented behavior:
 - Mock logs should be retained with a bounded limit per instance to avoid turning MVP into a log platform.
 
 This is simpler than introducing a separate mock service now, while preserving a clean path to extract it later if scale requires it.
+
+### Contract Testing Architecture
+
+MVP implements a Carta-native lightweight contract broker rather than embedding or cloning the Pact Broker. The goal is to support Carta's API management workflow, not to provide full Pact Broker API compatibility.
+
+The first contract testing engine is static OpenAPI compatibility:
+
+- provider contract input: Carta published OpenAPI snapshot
+- consumer contract input: Pact V3/V4 JSON or Carta HTTP interaction JSON
+- verification output: passed, failed, or unknown with structured mismatches
+- deployability output: can-i-deploy decision for participant/version/environment
+
+Provider live verification is an extension path. Carta can accept self-reported live verification results from CI in MVP, but it does not need to run every provider's test suite itself. This follows the same architectural idea as PactFlow/Pact Broker: the platform stores and evaluates contracts and results, while CI remains the place where application-specific tests run.
+
+GitLab CI is the first CI target. The implementation should expose copyable examples for publishing consumer contracts, querying can-i-deploy, and recording deployments from GitLab pipelines.
