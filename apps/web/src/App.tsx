@@ -158,6 +158,7 @@ export function App() {
 function ApiManagementPage({ project, onBack }: { project: Project; onBack: () => void }) {
   const [source, setSource] = useState(defaultOpenApiSource(project.name));
   const [status, setStatus] = useState("Draft");
+  const [sourcePanelOpen, setSourcePanelOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [startingMock, setStartingMock] = useState(false);
   const [mockUrl, setMockUrl] = useState<string>();
@@ -220,37 +221,52 @@ function ApiManagementPage({ project, onBack }: { project: Project; onBack: () =
 
   return (
     <div className="api-management-shell">
-      <header className="demo-navbar project-api-navbar">
+      <header className="demo-navbar project-api-navbar api-demo-navbar">
         <div className="demo-navbar-third demo-title">
           <button className="back-button" type="button" onClick={onBack}>
             Projects
           </button>
-          <span>{title}</span>
+          <span>Carta Elements Demo</span>
         </div>
 
-        <div className="demo-navbar-third project-api-meta">
-          <span>{project.code}</span>
-          <span>{status}</span>
-          {mockUrl ? <a href={mockUrl}>{mockUrl}</a> : null}
+        <div className="demo-navbar-third demo-spec-controls api-spec-controls">
+          <div className="api-spec-input" title={`${title} / ${project.code}`}>
+            <span>{title}</span>
+            <small>{project.code}</small>
+          </div>
+          <button type="button" onClick={saveOpenApi} disabled={saving}>
+            {saving ? "Saving..." : "Save"}
+          </button>
+          <span className="demo-or">or</span>
+          <button
+            className={sourcePanelOpen ? "active" : undefined}
+            type="button"
+            aria-expanded={sourcePanelOpen}
+            onClick={() => setSourcePanelOpen((open) => !open)}
+          >
+            OpenAPI source
+          </button>
         </div>
 
         <div className="demo-navbar-third demo-link">
-          <button type="button" onClick={saveOpenApi} disabled={saving}>
-            {saving ? "Saving..." : "Save OpenAPI"}
-          </button>
+          <span className="api-status-pill">{status}</span>
           <button type="button" onClick={startMock} disabled={startingMock || status !== "Saved"}>
             {startingMock ? "Starting..." : "Start mock"}
           </button>
+          {mockUrl ? <a href={mockUrl}>{mockUrl}</a> : null}
         </div>
       </header>
 
-      {error ? <div className="api-error">{error}</div> : null}
-
-      <main className="api-management-main">
-        <aside className="source-editor-panel">
+      {sourcePanelOpen ? (
+        <aside className="source-editor-drawer" aria-label="OpenAPI source editor">
           <div className="source-editor-heading">
-            <p className="eyebrow">OpenAPI source</p>
-            <span>YAML</span>
+            <div>
+              <p className="eyebrow">OpenAPI source</p>
+              <h2>Document source</h2>
+            </div>
+            <button type="button" onClick={() => setSourcePanelOpen(false)}>
+              Close
+            </button>
           </div>
           <textarea
             aria-label="OpenAPI source"
@@ -262,10 +278,21 @@ function ApiManagementPage({ project, onBack }: { project: Project; onBack: () =
             }}
           />
         </aside>
-        <section className="project-docs-panel">
+      ) : null}
+
+      <main className="api-management-main api-demo-main">
+        <section className="project-docs-panel api-demo-docs" aria-label="API documentation">
           <StoplightDocsPanel source={source} layout="sidebar" router="memory" />
         </section>
       </main>
+
+      {sourcePanelOpen ? (
+        <div className="source-editor-backdrop" onClick={() => setSourcePanelOpen(false)}>
+          <span />
+        </div>
+      ) : null}
+
+      {error ? <div className="api-error">{error}</div> : null}
     </div>
   );
 }

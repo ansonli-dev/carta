@@ -38,10 +38,14 @@ describe("Carta project flow", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Manage API" }));
 
     expect(await screen.findByText("Payments API")).toBeInTheDocument();
+    expect(screen.queryByLabelText("OpenAPI source")).not.toBeInTheDocument();
+    expect(screen.getByText("Documentation preview")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "OpenAPI source" }));
+
     expect(screen.getByLabelText("OpenAPI source")).toHaveValue(
       "openapi: 3.0.3\ninfo:\n  title: Payments API\n  version: 1.0.0\npaths: {}\n",
     );
-    expect(screen.getByText("Documentation preview")).toBeInTheDocument();
   });
 
   test("creates a project and enters API management", async () => {
@@ -65,6 +69,7 @@ describe("Carta project flow", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create and manage API" }));
 
     await waitFor(() => expect(screen.getByText("Orders API")).toBeInTheDocument());
+    await userEvent.click(screen.getByRole("button", { name: "OpenAPI source" }));
     expect(screen.getByLabelText<HTMLTextAreaElement>("OpenAPI source").value).toContain("title: Orders API");
   });
 });

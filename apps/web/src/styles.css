@@ -190,6 +190,7 @@ textarea {
 
 .api-management-shell,
 .demo-shell {
+  position: relative;
   display: flex;
   width: 100%;
   height: 100vh;
@@ -250,6 +251,10 @@ textarea {
   justify-content: center;
 }
 
+.api-spec-controls {
+  min-width: 500px;
+}
+
 .demo-spec-controls input {
   width: min(380px, 44vw);
   min-width: 220px;
@@ -274,7 +279,8 @@ textarea {
 .example-picker summary,
 .demo-link a,
 .demo-link button,
-.back-button {
+.back-button,
+.source-editor-heading button {
   height: 30px;
   padding: 0 10px;
   color: #f9fafb;
@@ -290,6 +296,36 @@ textarea {
 .back-button {
   color: #dbeafe;
   background: transparent;
+}
+
+.api-spec-input {
+  display: flex;
+  width: min(380px, 34vw);
+  min-width: 240px;
+  height: 30px;
+  min-height: 30px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  overflow: hidden;
+  color: #f9fafb;
+  background: #252b37;
+  border: 1px solid #3b4454;
+  border-radius: 999px;
+}
+
+.api-spec-input span {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-spec-input small {
+  flex: 0 0 auto;
+  color: #9ca3af;
+  font-size: 12px;
 }
 
 .demo-link {
@@ -314,7 +350,9 @@ textarea {
 .example-picker summary:hover,
 .demo-link a:hover,
 .demo-link button:hover,
-.back-button:hover {
+.back-button:hover,
+.source-editor-heading button:hover,
+.demo-spec-controls button.active {
   background: #2a3140;
 }
 
@@ -384,35 +422,53 @@ textarea {
   position: absolute;
   top: 58px;
   right: 16px;
-  z-index: 30;
+  z-index: 60;
   max-width: 520px;
 }
 
 .api-management-main {
-  display: grid;
+  display: flex;
   min-height: 0;
   flex: 1;
-  grid-template-columns: 420px minmax(0, 1fr);
-  background: #eef2f7;
+  background: #ffffff;
 }
 
-.source-editor-panel {
+.api-demo-main {
+  position: relative;
+  overflow: hidden;
+}
+
+.source-editor-drawer {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
   display: flex;
+  width: min(560px, 42vw);
   min-width: 0;
   min-height: 0;
   flex-direction: column;
   background: #ffffff;
-  border-right: 1px solid #d8e0eb;
+  border-left: 1px solid #d8e0eb;
+  box-shadow: -16px 0 32px rgb(15 23 42 / 14%);
 }
 
 .source-editor-heading {
   display: flex;
-  height: 52px;
-  flex: 0 0 52px;
+  min-height: 64px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  padding: 0 14px;
+  gap: 16px;
+  padding: 12px 14px;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.source-editor-heading h2 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: 0;
 }
 
 .source-editor-heading span {
@@ -424,7 +480,14 @@ textarea {
   border-radius: 4px;
 }
 
-.source-editor-panel textarea {
+.source-editor-heading button {
+  flex: 0 0 auto;
+  color: #111827;
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+.source-editor-drawer textarea {
   width: 100%;
   min-height: 0;
   flex: 1;
@@ -436,6 +499,13 @@ textarea {
   resize: none;
   border: 0;
   outline: none;
+}
+
+.source-editor-backdrop {
+  position: absolute;
+  inset: 48px 0 0;
+  z-index: 40;
+  background: rgb(15 23 42 / 10%);
 }
 
 .project-docs-panel,
@@ -483,14 +553,41 @@ textarea {
     overflow: auto;
   }
 
-  .project-management-grid,
-  .api-management-main {
+  .project-management-grid {
     grid-template-columns: 1fr;
   }
 
-  .source-editor-panel {
-    min-height: 420px;
-    border-right: 0;
-    border-bottom: 1px solid #d8e0eb;
+  .api-demo-navbar {
+    height: auto;
+    min-height: 48px;
+    padding: 8px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .demo-navbar-third,
+  .api-spec-controls {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .demo-title,
+  .demo-link,
+  .api-spec-controls {
+    justify-content: flex-start;
+  }
+
+  .api-spec-input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .source-editor-drawer {
+    top: 112px;
+    width: 100%;
+  }
+
+  .source-editor-backdrop {
+    inset: 112px 0 0;
   }
 }
