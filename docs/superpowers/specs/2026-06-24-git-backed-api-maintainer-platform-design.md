@@ -4,7 +4,7 @@ Date: 2026-06-24
 
 ## Product Positioning
 
-Carta MVP is a Git-backed API contract maintainer platform for backend API owners and API maintainers. It is not a generic project CRUD tool and it is not a full Stoplight clone. The product helps a team create, edit, publish, and mock OpenAPI contracts while keeping the OpenAPI file in the code repository as the final source of truth.
+Carta MVP is a Git-backed API management and mock server platform for backend API owners and API maintainers. It is not a generic project CRUD tool and it is not a full Stoplight clone. The product helps a team create, edit, publish, and mock OpenAPI contracts while keeping the OpenAPI file in the code repository as the final source of truth.
 
 The core loop is:
 
@@ -15,12 +15,12 @@ Account and workspace
 -> Edit in API Studio
 -> Commit OpenAPI file to Git
 -> Publish docs
--> Refresh mock server
+-> Operate mock server
 ```
 
 ## Primary User
 
-The primary user is an API maintainer: usually a backend engineer, platform engineer, or technical owner of a service API. This user needs to maintain OpenAPI contracts with enough structure that request and response design is reliable, while still fitting normal code repository workflows.
+The primary user is an API maintainer: usually a backend engineer, platform engineer, or technical owner of a service API. This user needs to maintain OpenAPI contracts with enough structure that request and response design is reliable, then expose useful mock endpoints for frontend teams, QA, integration tests, and partner development before the real backend is ready.
 
 Secondary users are reviewers and consumers who need to read published docs or call a mock server. They are supported through workspace access and published docs visibility, but they are not the main editing audience for MVP.
 
@@ -29,8 +29,10 @@ Secondary users are reviewers and consumers who need to read published docs or c
 - Support creating an API directly in Carta and syncing the generated OpenAPI file into a code repository.
 - Support connecting an existing OpenAPI file from Git and maintaining it through Carta.
 - Make request and response design a first-class workflow, not an afterthought.
+- Make mock server operation a first-class workflow alongside API management.
 - Keep Git as the final source of truth for OpenAPI files.
 - Publish docs and mock servers from stable published revisions, not from unsaved drafts.
+- Provide practical mock controls: examples, scenario selection, validation mode, latency, error simulation, and request logs.
 - Provide a real account, workspace, invitation, and role model so access control is meaningful.
 - Keep the MVP focused enough to implement cleanly while preserving data model extension points for future source modes.
 
@@ -44,6 +46,8 @@ Secondary users are reviewers and consumers who need to read published docs or c
 - Full style guide governance.
 - Consumer portal, API keys for external developers, or monetized API access.
 - Multi-file documentation sites beyond the OpenAPI-backed API docs surface.
+- Full mock analytics or load testing.
+- Stateful mock workflows that require durable business-state simulation.
 
 ## Information Architecture
 
@@ -304,6 +308,21 @@ Published docs and mock servers support two visibility modes in MVP:
 
 Default visibility is `private`.
 
+### 6. Operate Mock Server
+
+```text
+User opens Mock Server
+-> Reviews base URL and backing published revision
+-> Chooses strict, warn, or off validation mode
+-> Creates named scenarios such as happy-path, empty-state, validation-error, and server-error
+-> Maps operation responses to examples or schema-generated responses
+-> Sets latency or error simulation when needed
+-> Sends test requests from the UI or an external client
+-> Reviews request logs, validation errors, selected scenario, and response status
+```
+
+Mock server is a primary product surface. It should help teams use the API contract before implementation is complete, not merely prove that a mock process can start.
+
 ## Key Screens
 
 ### Login And Workspace Selection
@@ -381,6 +400,8 @@ Operation editor tabs:
 
 Request and response design must be structured. The user should be able to define status codes, content types, headers, schema references, inline schemas, descriptions, and examples without hand-editing YAML.
 
+Response examples are also mock fixtures. API Studio should make this relationship visible: when a maintainer adds or edits a response example, Carta should show whether that example is available to the mock server and which scenarios use it.
+
 The right-side OpenAPI panel shows generated YAML for the selected object or entire source. It is a transparency aid, not the primary editing method.
 
 ### Git Sync
@@ -417,9 +438,23 @@ Mock Server shows:
 - backing published revision
 - last build time
 - sample curl command
-- recent validation errors or request logs when available
+- validation mode: strict, warn, or off
+- active scenario
+- scenario list and scenario editor
+- per-operation response/example mapping
+- latency and error simulation controls
+- recent request logs
+- validation errors and warnings
+- selected response example or generated schema response
 
-MVP does not need a full analytics product, but basic request logs are useful if they are cheap to add.
+Primary tabs:
+
+- Overview: base URL, visibility, backing revision, status, copyable examples.
+- Scenarios: named scenario setup, operation overrides, default scenario selection.
+- Requests: recent requests, matched operation, validation result, response status, latency.
+- Settings: validation mode, visibility, latency defaults, error simulation defaults.
+
+MVP does not need full analytics, but request logs are not optional because they are essential for debugging mock behavior.
 
 ### Workspace Settings
 
@@ -484,18 +519,54 @@ mock_instances
 - base_url
 - visibility: private | public
 - status: active | building | failed
+- validation_mode: strict | warn | off
+- default_latency_ms
+- default_error_rate
+- active_scenario_id
 - last_built_at
 - created_at
 - updated_at
+
+mock_scenarios
+- id
+- mock_instance_id
+- name
+- description
+- is_default
+- route_overrides
+- created_by
+- created_at
+- updated_at
+
+mock_request_logs
+- id
+- mock_instance_id
+- request_id
+- method
+- path
+- status_code
+- matched_operation
+- scenario_id
+- validation_status: valid | invalid | warning
+- latency_ms
+- request_summary
+- response_summary
+- created_at
 ```
 
 Request behavior:
 
 - Match path and method against the published OpenAPI snapshot.
 - Validate path, query, header, and body inputs.
-- Prefer explicit response examples.
+- Select the active scenario or the explicitly requested scenario.
+- Explicit scenario selection can use `X-Carta-Mock-Scenario` or `?__scenario=...`.
+- Prefer scenario overrides when present.
+- Prefer explicit OpenAPI response examples when no scenario override exists.
 - If no example exists, generate a response from the schema.
+- Support deterministic response selection through examples and scenario names.
+- Support configurable latency and error simulation at mock-instance or scenario level.
 - Return structured validation errors for invalid requests.
+- Log recent requests, matched operations, validation results, selected examples, latency, and response status.
 - Respect docs/mock visibility.
 
 Example URL shape:
@@ -503,6 +574,8 @@ Example URL shape:
 ```text
 https://carta.example.com/mocks/:workspaceSlug/:projectSlug/:apiSlug
 ```
+
+Default calls use the active scenario. Scenario-specific calls use the same base URL with a scenario header or query parameter so client integrations do not need different mock hosts.
 
 ## Error Handling
 
@@ -587,6 +660,11 @@ audit_events
 - A successful Git sync automatically publishes docs and refreshes the mock server.
 - Published docs render from the published revision.
 - Mock server responses come from the published revision and validate incoming requests.
+- Maintainers can configure mock validation mode.
+- Maintainers can create named mock scenarios and choose the active scenario.
+- Maintainers can map operations to response examples for mock behavior.
+- Maintainers can configure basic latency and error simulation.
+- Maintainers and viewers can inspect recent mock request logs.
 - Private docs and mock URLs require workspace membership.
 - Public docs and mock URLs are accessible by link.
 
@@ -649,17 +727,20 @@ This gives users protection against browser refresh and navigation while keeping
 
 MVP keeps mock server orchestration in the API service and uses Prism as the mock engine. This matches the current codebase, which already has `@stoplight/prism-cli`, a Prism process adapter, and mock service tests.
 
-The implementation keeps the existing adapter boundary so the mock runtime can move to a separate service later.
+Prism is the validation and response-generation engine, not the whole product surface. Carta owns the stable public mock URL, access checks, scenario selection, request logging, validation mode, latency/error simulation, and UI configuration. The implementation keeps the existing adapter boundary so the mock runtime can move to a separate service later.
 
 Development behavior:
 
 - API service starts Prism child processes on local ports.
 - `mock_instances` records status, base URL, port, and errors.
+- API service proxies stable mock URLs to the active local Prism process.
+- API service records request logs and applies scenario/latency/error controls around the Prism response.
 
 Production-oriented behavior:
 
 - Carta exposes stable mock URLs through the API service.
 - The API service routes or proxies requests to the active Prism-backed mock instance.
 - Mock instances are built only from published revisions.
+- Mock logs should be retained with a bounded limit per instance to avoid turning MVP into a log platform.
 
 This is simpler than introducing a separate mock service now, while preserving a clean path to extract it later if scale requires it.
