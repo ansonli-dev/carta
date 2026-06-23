@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, type Project } from "./api/client";
 import { StoplightDocsPanel } from "./pages/StoplightDocsPanel";
 
@@ -478,17 +479,21 @@ components:
 `;
 }
 
-type ViewState =
-  | {
-      name: "projects";
-    }
-  | {
-      name: "api";
-      project: Project;
-    };
-
 export function App() {
-  const [view, setView] = useState<ViewState>({ name: "projects" });
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/projects" replace />} />
+        <Route path="/projects" element={<ProjectManagementPage />} />
+        <Route path="/projects/:projectId/apis" element={<ProjectApiRoute />} />
+        <Route path="*" element={<Navigate to="/projects" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+function ProjectManagementPage() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectName, setProjectName] = useState("");
   const [projectCode, setProjectCode] = useState("");
@@ -525,24 +530,12 @@ export function App() {
       setProjects((current) => [project, ...current.filter((item) => item.id !== project.id)]);
       setProjectName("");
       setProjectCode("");
-      setView({ name: "api", project });
+      navigate(`/projects/${project.id}/apis`, { state: { project } });
     } catch (createError) {
       setError(errorMessage(createError, "Project could not be created"));
     } finally {
       setCreatingProject(false);
     }
-  }
-
-  if (view.name === "api") {
-    return (
-      <ApiManagementPage
-        project={view.project}
-        onBack={() => {
-          setView({ name: "projects" });
-          void loadProjects();
-        }}
-      />
-    );
   }
 
   return (
@@ -603,7 +596,7 @@ export function App() {
                     <h3>{project.name}</h3>
                     <p>{project.code}</p>
                   </div>
-                  <button type="button" onClick={() => setView({ name: "api", project })}>
+                  <button type="button" onClick={() => navigate(`/projects/${project.id}/apis`, { state: { project } })}>
                     Manage API
                   </button>
                 </article>
@@ -614,6 +607,78 @@ export function App() {
       </section>
     </main>
   );
+}
+
+function ProjectApiRoute() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { projectId } = useParams();
+  const stateProject = (location.state as { project?: Project } | null)?.project;
+  const [project, setProject] = useState<Project | undefined>(
+    stateProject?.id === projectId ? stateProject : undefined,
+  );
+  const [loadingProject, setLoadingProject] = useState(!project);
+  const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProject() {
+      if (project || !projectId) {
+        setLoadingProject(false);
+        return;
+      }
+
+      setLoadingProject(true);
+      setError(undefined);
+      try {
+        const projects = await api.listProjects();
+        const nextProject = projects.find((item) => item.id === projectId);
+        if (!cancelled) {
+          if (nextProject) {
+            setProject(nextProject);
+          } else {
+            setError("Project could not be found");
+          }
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(errorMessage(loadError, "Project could not be loaded"));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingProject(false);
+        }
+      }
+    }
+
+    void loadProject();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [project, projectId]);
+
+  if (loadingProject) {
+    return (
+      <main className="project-management-page">
+        <div className="empty-projects">Loading project...</div>
+      </main>
+    );
+  }
+
+  if (!project) {
+    return (
+      <main className="project-management-page">
+        <div className="empty-projects">{error ?? "Project could not be found"}</div>
+        <button className="project-route-back" type="button" onClick={() => navigate("/projects")}>
+          Projects
+        </button>
+      </main>
+    );
+  }
+
+  return <ApiManagementPage project={project} onBack={() => navigate("/projects")} />;
 }
 
 function ApiManagementPage({ project, onBack }: { project: Project; onBack: () => void }) {
