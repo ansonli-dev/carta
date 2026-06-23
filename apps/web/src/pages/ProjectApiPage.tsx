@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, type Project } from "../api/client";
-import { defaultOpenApiSource } from "../openapi/defaultOpenApiSource";
 import { errorMessage } from "../utils/errorMessage";
 import { StoplightDocsPanel } from "./StoplightDocsPanel";
 
@@ -78,8 +77,8 @@ export function ProjectApiPage() {
 }
 
 function ApiManagementView({ project, onBack }: { project: Project; onBack: () => void }) {
-  const [source, setSource] = useState(defaultOpenApiSource(project.name));
-  const [status, setStatus] = useState("Draft");
+  const [source, setSource] = useState("");
+  const [status, setStatus] = useState("Loading");
   const [sourcePanelOpen, setSourcePanelOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [startingMock, setStartingMock] = useState(false);
@@ -102,8 +101,9 @@ function ApiManagementView({ project, onBack }: { project: Project; onBack: () =
         }
       } catch {
         if (!cancelled) {
-          setSource(defaultOpenApiSource(project.name));
-          setStatus("Draft");
+          setSource("");
+          setStatus("Unavailable");
+          setError("OpenAPI source could not be loaded");
         }
       }
     }
@@ -204,7 +204,7 @@ function ApiManagementView({ project, onBack }: { project: Project; onBack: () =
 
       <main className="api-management-main api-demo-main">
         <section className="project-docs-panel api-demo-docs" aria-label="API documentation">
-          <StoplightDocsPanel source={source} layout="sidebar" router="memory" />
+          <StoplightDocsPanel source={source || undefined} layout="sidebar" router="memory" />
         </section>
       </main>
 

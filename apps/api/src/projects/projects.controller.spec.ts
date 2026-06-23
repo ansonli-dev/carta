@@ -55,6 +55,81 @@ describe("Projects API", () => {
     expect(projects.body[0].tags).toEqual([]);
   });
 
+  test.skipIf(!hasDatabaseUrl)("creates a project with an initial OpenAPI revision", async () => {
+    const suffix = Date.now().toString(36);
+    const projectResponse = await request(app.getHttpServer())
+      .post("/api/projects")
+      .send({ name: "Seeded API", code: `seeded-${suffix}`, ownerTeam: "platform", sourceMode: "openapi_yaml" })
+      .expect(201);
+    createdProjectIds.push(projectResponse.body.id);
+
+    const source = await request(app.getHttpServer())
+      .get(`/api/projects/${projectResponse.body.id}/docs/openapi.yaml`)
+      .expect(200);
+    expect(source.text).toContain("title: Seeded API");
+    expect(source.text).toContain("summary: List Todos");
+
+    const endpoints = await request(app.getHttpServer())
+      .get(`/api/projects/${projectResponse.body.id}/endpoints`)
+      .expect(200);
+    expect(endpoints.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          method: "GET",
+          operation_id: "listTodos",
+          path: "/todos",
+        }),
+        expect.objectContaining({
+          method: "POST",
+          operation_id: "createUser",
+          path: "/users",
+        }),
+      ]),
+    );
+  });
+
+  test.skipIf(!hasDatabaseUrl)("backfills an initial OpenAPI revision for legacy projects", async () => {
+    const suffix = Date.now().toString(36);
+    const projectId = `prj_legacy_${suffix}`;
+    const versionId = `ver_legacy_${suffix}`;
+    createdProjectIds.push(projectId);
+
+    await db
+      .insertInto("api_projects")
+      .values({
+        id: projectId,
+        name: "Legacy API",
+        code: `legacy-${suffix}`,
+        owner_team: "platform",
+        source_mode: "openapi_yaml",
+        tags: JSON.stringify([]),
+        created_at: new Date(),
+        updated_at: new Date(),
+      })
+      .execute();
+    await db
+      .insertInto("api_versions")
+      .values({
+        id: versionId,
+        project_id: projectId,
+        version: "0.1.0",
+        status: "draft",
+        created_at: new Date(),
+        updated_at: new Date(),
+      })
+      .execute();
+
+    const source = await request(app.getHttpServer()).get(`/api/projects/${projectId}/docs/openapi.yaml`).expect(200);
+    expect(source.text).toContain("title: Legacy API");
+
+    const revision = await db
+      .selectFrom("source_revisions")
+      .select(["raw_content"])
+      .where("api_version_id", "=", versionId)
+      .executeTakeFirstOrThrow();
+    expect(revision.raw_content).toContain("summary: List Todos");
+  });
+
   test.skipIf(!hasDatabaseUrl)("returns endpoint catalog and latest OpenAPI source for docs", async () => {
     const suffix = Date.now().toString(36);
     const projectResponse = await request(app.getHttpServer())

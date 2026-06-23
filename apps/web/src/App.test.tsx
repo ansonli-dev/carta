@@ -61,6 +61,15 @@ describe("Carta project flow", () => {
           ownerTeam: "platform",
           currentVersion: { id: "ver_2", status: "draft" },
         }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          "openapi: 3.0.3\ninfo:\n  title: Orders API\n  version: 1.0.0\npaths:\n  /todos:\n    get:\n      summary: List Todos\n      operationId: listTodos\n      responses:\n        '200':\n          description: OK\n  /users:\n    post:\n      summary: Create User\n      operationId: createUser\n      responses:\n        '201':\n          description: Created\ncomponents:\n  securitySchemes:\n    ApiKeyAuth:\n      type: apiKey\n      in: header\n      name: X-API-Key\n",
+          {
+            status: 200,
+            headers: { "Content-Type": "text/yaml" },
+          },
+        ),
       );
 
     render(<App />);

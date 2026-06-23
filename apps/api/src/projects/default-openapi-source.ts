@@ -1,21 +1,14 @@
-openapi: 3.0.3
+export function defaultOpenApiSource(title: string) {
+  return `openapi: 3.0.3
 info:
-  title: __API_TITLE__
+  title: ${title}
   version: 1.0.0
   description: |-
     ## Overview
 
-    This sample API is shaped to match the Stoplight Elements demo: rich overview copy,
-    grouped endpoints, reusable schemas, request examples, response examples, shared
-    parameters, and API key security.
-
-    Use it as a starting point for a project API, then replace resources and schemas
-    with your own OpenAPI document.
-  contact:
-    name: Carta Platform
-    email: platform@example.com
-  license:
-    name: MIT
+    This sample API is stored as the project's first source revision. It gives a
+    new project enough realistic OpenAPI structure for docs, endpoint cataloging,
+    and mock generation without requiring the web client to invent data.
 servers:
   - url: https://api.example.com
     description: Production
@@ -35,11 +28,6 @@ paths:
         - Todos
       summary: List Todos
       operationId: listTodos
-      description: |-
-        Returns a paginated list of todos.
-
-        Markdown is supported in descriptions, so API teams can add usage notes,
-        rollout guidance, and links to runbooks.
       parameters:
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -61,7 +49,6 @@ paths:
         - Todos
       summary: Create Todo
       operationId: createTodo
-      description: Creates a todo item for the authenticated user.
       requestBody:
         required: true
         content:
@@ -78,9 +65,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Todo'
-              examples:
-                default:
-                  $ref: '#/components/examples/Todo'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /todos/{todoId}:
@@ -91,7 +75,6 @@ paths:
         - Todos
       summary: Get Todo
       operationId: getTodo
-      description: Gets a single todo by ID.
       responses:
         '200':
           description: Returns the requested todo.
@@ -99,9 +82,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Todo'
-              examples:
-                default:
-                  $ref: '#/components/examples/Todo'
         '404':
           $ref: '#/components/responses/NotFound'
     put:
@@ -109,7 +89,6 @@ paths:
         - Todos
       summary: Replace Todo
       operationId: replaceTodo
-      description: Replaces every mutable field on a todo.
       requestBody:
         required: true
         content:
@@ -131,7 +110,6 @@ paths:
       summary: Update Todo
       operationId: updateTodo
       deprecated: true
-      description: Deprecated partial update endpoint kept for compatibility examples.
       requestBody:
         content:
           application/json:
@@ -147,7 +125,6 @@ paths:
         - Todos
       summary: Delete Todo
       operationId: deleteTodo
-      description: Deletes a todo by ID.
       responses:
         '204':
           description: Todo deleted.
@@ -159,7 +136,6 @@ paths:
         - Users
       summary: List Users
       operationId: listUsers
-      description: Lists users who can own todos.
       security: []
       responses:
         '200':
@@ -175,7 +151,6 @@ paths:
         - Users
       summary: Create User
       operationId: createUser
-      description: Creates a user profile.
       requestBody:
         required: true
         content:
@@ -192,9 +167,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
-              examples:
-                default:
-                  $ref: '#/components/examples/User'
   /users/{userId}:
     parameters:
       - $ref: '#/components/parameters/UserId'
@@ -203,7 +175,6 @@ paths:
         - Users
       summary: Get User
       operationId: getUser
-      description: Gets a user by ID.
       responses:
         '200':
           description: Returns the requested user.
@@ -218,7 +189,6 @@ paths:
         - Users
       summary: Delete User
       operationId: deleteUser
-      description: Deletes a user profile.
       responses:
         '204':
           description: User deleted.
@@ -228,7 +198,7 @@ components:
       type: apiKey
       in: header
       name: X-API-Key
-      description: Use any demo value, for example `123`.
+      description: Use any demo value, for example 123.
   parameters:
     Limit:
       name: limit
@@ -244,7 +214,6 @@ components:
       name: todoId
       in: path
       required: true
-      description: Unique todo identifier.
       schema:
         type: string
         example: todo_123
@@ -252,7 +221,6 @@ components:
       name: userId
       in: path
       required: true
-      description: Unique user identifier.
       schema:
         type: string
         example: usr_123
@@ -268,12 +236,10 @@ components:
       properties:
         id:
           type: string
-          example: todo_123
           readOnly: true
+          example: todo_123
         title:
           type: string
-          minLength: 1
-          maxLength: 120
           example: Review API changelog
         completed:
           type: boolean
@@ -284,18 +250,9 @@ components:
             - low
             - medium
             - high
-          default: medium
         owner:
           $ref: '#/components/schemas/User'
-        dueAt:
-          type: string
-          format: date-time
-          nullable: true
         createdAt:
-          type: string
-          format: date-time
-          readOnly: true
-        updatedAt:
           type: string
           format: date-time
           readOnly: true
@@ -317,9 +274,6 @@ components:
             - low
             - medium
             - high
-        dueAt:
-          type: string
-          format: date-time
     TodoUpdate:
       type: object
       properties:
@@ -327,12 +281,6 @@ components:
           type: string
         completed:
           type: boolean
-        priority:
-          type: string
-          enum:
-            - low
-            - medium
-            - high
     User:
       type: object
       required:
@@ -355,9 +303,6 @@ components:
           type: string
           format: email
           example: avery@example.com
-        phone:
-          type: string
-          example: '+1-555-0100'
     UserCreate:
       type: object
       required:
@@ -375,8 +320,6 @@ components:
           type: string
           format: email
           example: avery@example.com
-        phone:
-          type: string
     Error:
       type: object
       required:
@@ -394,37 +337,13 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          examples:
-            default:
-              value:
-                code: unauthorized
-                message: Provide a valid API key.
     NotFound:
       description: Resource not found.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          examples:
-            default:
-              value:
-                code: not_found
-                message: Resource not found.
   examples:
-    Todo:
-      value:
-        id: todo_123
-        title: Review API changelog
-        completed: false
-        priority: high
-        owner:
-          id: usr_123
-          firstName: Avery
-          lastName: Stone
-          email: avery@example.com
-        dueAt: '2026-07-01T09:00:00Z'
-        createdAt: '2026-06-23T09:00:00Z'
-        updatedAt: '2026-06-23T09:00:00Z'
     TodoList:
       value:
         - id: todo_123
@@ -436,37 +355,16 @@ components:
             firstName: Avery
             lastName: Stone
             email: avery@example.com
-          dueAt: '2026-07-01T09:00:00Z'
           createdAt: '2026-06-23T09:00:00Z'
-          updatedAt: '2026-06-23T09:00:00Z'
-        - id: todo_456
-          title: Publish SDK guide
-          completed: true
-          priority: medium
-          owner:
-            id: usr_456
-            firstName: Morgan
-            lastName: Lee
-            email: morgan@example.com
-          dueAt: null
-          createdAt: '2026-06-20T09:00:00Z'
-          updatedAt: '2026-06-22T16:30:00Z'
     TodoCreate:
       value:
         title: Review API changelog
         ownerId: usr_123
         priority: high
-        dueAt: '2026-07-01T09:00:00Z'
-    User:
-      value:
-        id: usr_123
-        firstName: Avery
-        lastName: Stone
-        email: avery@example.com
-        phone: '+1-555-0100'
     UserCreate:
       value:
         firstName: Avery
         lastName: Stone
         email: avery@example.com
-        phone: '+1-555-0100'
+`;
+}

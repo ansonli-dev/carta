@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
 import { Inject, Injectable, NotFoundException, UnprocessableEntityException } from "@nestjs/common";
-import type { Kysely } from "kysely";
+import type { Kysely, Transaction } from "kysely";
 import { nanoid } from "nanoid";
 import { DATABASE } from "../database/database.module.js";
 import type { CartaDatabase } from "../database/database.js";
 import { OpenApiService } from "../openapi/openapi.service.js";
+import { defaultOpenApiSource } from "./default-openapi-source.js";
 
 type CreateProjectInput = {
   name: string;
@@ -29,6 +30,13 @@ export class ProjectsService {
     const now = new Date();
     const projectId = `prj_${nanoid(12)}`;
     const versionId = `ver_${nanoid(12)}`;
+    const revisionId = `rev_${nanoid(12)}`;
+    const rawContent = defaultOpenApiSource(input.name);
+    const parsed = await this.openapi.parse(rawContent);
+
+    if (parsed.status === "invalid") {
+      throw new UnprocessableEntityException({ errors: parsed.errors });
+    }
 
     await this.db.transaction().execute(async (trx) => {
       await trx
@@ -56,6 +64,16 @@ export class ProjectsService {
           updated_at: now,
         })
         .execute();
+
+      await this.insertSourceRevision(trx, {
+        versionId,
+        revisionId,
+        sourceMode: input.sourceMode,
+        rawContent,
+        parsedDocument: parsed.document,
+        endpoints: parsed.endpoints,
+        createdAt: now,
+      });
     });
 
     return {
@@ -106,40 +124,18 @@ export class ProjectsService {
         createdAt = new Date(latestRevision.created_at.getTime() + 1);
       }
 
-      await trx
-        .insertInto("source_revisions")
-        .values({
-          id: revisionId,
-          api_version_id: version.id,
-          source_mode: input.sourceMode,
-          raw_content: input.rawContent,
-          parsed_document: parsed.document,
-          content_hash: contentHash,
-          parse_status: "valid",
-          parse_errors: JSON.stringify([]),
-          created_at: createdAt,
-        })
-        .execute();
-
       await trx.deleteFrom("api_endpoints").where("api_version_id", "=", version.id).execute();
 
-      if (parsed.endpoints.length > 0) {
-        await trx
-          .insertInto("api_endpoints")
-          .values(
-            parsed.endpoints.map((endpoint) => ({
-              id: `end_${nanoid(12)}`,
-              api_version_id: version.id,
-              path: endpoint.path,
-              method: endpoint.method,
-              operation_id: endpoint.operationId,
-              summary: endpoint.summary,
-              tags: JSON.stringify(endpoint.tags),
-              deprecated: endpoint.deprecated,
-            })),
-          )
-          .execute();
-      }
+      await this.insertSourceRevision(trx, {
+        versionId: version.id,
+        revisionId,
+        sourceMode: input.sourceMode,
+        rawContent: input.rawContent,
+        parsedDocument: parsed.document,
+        endpoints: parsed.endpoints,
+        createdAt,
+        contentHash,
+      });
     });
 
     return {
@@ -153,13 +149,34 @@ export class ProjectsService {
   async listEndpoints(projectId: string) {
     const version = await this.findCurrentVersion(projectId);
 
-    return this.db
+    let endpoints = await this.db
       .selectFrom("api_endpoints")
       .selectAll()
       .where("api_version_id", "=", version.id)
       .orderBy("path", "asc")
       .orderBy("method", "asc")
       .execute();
+
+    if (endpoints.length === 0) {
+      const revision = await this.db
+        .selectFrom("source_revisions")
+        .select(["id"])
+        .where("api_version_id", "=", version.id)
+        .executeTakeFirst();
+
+      if (!revision) {
+        await this.createDefaultRevision(projectId, version.id);
+        endpoints = await this.db
+          .selectFrom("api_endpoints")
+          .selectAll()
+          .where("api_version_id", "=", version.id)
+          .orderBy("path", "asc")
+          .orderBy("method", "asc")
+          .execute();
+      }
+    }
+
+    return endpoints;
   }
 
   async getLatestOpenApiSource(projectId: string) {
@@ -173,7 +190,7 @@ export class ProjectsService {
       .executeTakeFirst();
 
     if (!revision) {
-      throw new NotFoundException("OpenAPI source not found");
+      return (await this.createDefaultRevision(projectId, version.id)).rawContent;
     }
 
     return revision.raw_content;
@@ -181,7 +198,7 @@ export class ProjectsService {
 
   async getLatestMockInput(projectId: string) {
     const version = await this.findCurrentVersion(projectId);
-    const revision = await this.db
+    let revision = await this.db
       .selectFrom("source_revisions")
       .select(["id", "raw_content"])
       .where("api_version_id", "=", version.id)
@@ -190,7 +207,11 @@ export class ProjectsService {
       .executeTakeFirst();
 
     if (!revision) {
-      throw new NotFoundException("OpenAPI source not found");
+      const backfilled = await this.createDefaultRevision(projectId, version.id);
+      revision = {
+        id: backfilled.revisionId,
+        raw_content: backfilled.rawContent,
+      };
     }
 
     return {
@@ -199,6 +220,108 @@ export class ProjectsService {
       revisionId: revision.id,
       rawContent: revision.raw_content,
     };
+  }
+
+  private async createDefaultRevision(projectId: string, versionId: string) {
+    const project = await this.db
+      .selectFrom("api_projects")
+      .select(["name", "source_mode"])
+      .where("id", "=", projectId)
+      .executeTakeFirst();
+
+    if (!project) {
+      throw new NotFoundException("Project not found");
+    }
+
+    const rawContent = defaultOpenApiSource(project.name);
+    const parsed = await this.openapi.parse(rawContent);
+
+    if (parsed.status === "invalid") {
+      throw new UnprocessableEntityException({ errors: parsed.errors });
+    }
+
+    const revisionId = `rev_${nanoid(12)}`;
+    await this.db.transaction().execute(async (trx) => {
+      const existingRevision = await trx
+        .selectFrom("source_revisions")
+        .select(["id"])
+        .where("api_version_id", "=", versionId)
+        .forUpdate()
+        .executeTakeFirst();
+
+      if (existingRevision) {
+        return;
+      }
+
+      await this.insertSourceRevision(trx, {
+        versionId,
+        revisionId,
+        sourceMode: project.source_mode,
+        rawContent,
+        parsedDocument: parsed.document,
+        endpoints: parsed.endpoints,
+        createdAt: new Date(),
+      });
+    });
+
+    return {
+      revisionId,
+      rawContent,
+    };
+  }
+
+  private async insertSourceRevision(
+    db: Kysely<CartaDatabase> | Transaction<CartaDatabase>,
+    input: {
+      versionId: string;
+      revisionId: string;
+      sourceMode: string;
+      rawContent: string;
+      parsedDocument: unknown;
+      endpoints: Array<{
+        path: string;
+        method: string;
+        operationId: string | null;
+        summary: string | null;
+        tags: string[];
+        deprecated: boolean;
+      }>;
+      createdAt: Date;
+      contentHash?: string;
+    },
+  ) {
+    await db
+      .insertInto("source_revisions")
+      .values({
+        id: input.revisionId,
+        api_version_id: input.versionId,
+        source_mode: input.sourceMode,
+        raw_content: input.rawContent,
+        parsed_document: input.parsedDocument,
+        content_hash: input.contentHash ?? createHash("sha256").update(input.rawContent).digest("hex"),
+        parse_status: "valid",
+        parse_errors: JSON.stringify([]),
+        created_at: input.createdAt,
+      })
+      .execute();
+
+    if (input.endpoints.length > 0) {
+      await db
+        .insertInto("api_endpoints")
+        .values(
+          input.endpoints.map((endpoint) => ({
+            id: `end_${nanoid(12)}`,
+            api_version_id: input.versionId,
+            path: endpoint.path,
+            method: endpoint.method,
+            operation_id: endpoint.operationId,
+            summary: endpoint.summary,
+            tags: JSON.stringify(endpoint.tags),
+            deprecated: endpoint.deprecated,
+          })),
+        )
+        .execute();
+    }
   }
 
   private async findCurrentVersion(projectId: string) {
