@@ -102,7 +102,7 @@ workspace_invitations
 git_connections
 - id
 - user_id
-- provider: github
+- provider: gitlab
 - provider_account
 - access_token_ref
 - scopes
@@ -229,7 +229,7 @@ User opens Projects
 -> Create Project
 -> Select "Create from Carta"
 -> Enter project name and API name
--> Connect or choose GitHub account
+-> Connect or choose GitLab account
 -> Choose repo and branch
 -> Enter OpenAPI file path, for example openapi/orders.yaml
 -> Carta validates that the file path does not already exist
@@ -247,7 +247,7 @@ If the target path already exists, Carta blocks creation and suggests connecting
 User opens Projects
 -> Create Project
 -> Select "Connect Existing OpenAPI"
--> Connect or choose GitHub account
+-> Connect or choose GitLab account
 -> Choose repo, branch, and OpenAPI file path
 -> Carta reads the file
 -> Carta validates and parses OpenAPI
@@ -515,7 +515,7 @@ Account and access errors:
 
 Git errors:
 
-- missing Git connection prompts the user to connect GitHub
+- missing Git connection prompts the user to connect GitLab
 - insufficient repo permission blocks create or sync
 - existing target file blocks Create from Carta
 - remote commit mismatch blocks Git sync
@@ -576,8 +576,8 @@ audit_events
 - An owner can invite a user by email with owner, maintainer, or viewer role.
 - Invited users can accept invitations and access the workspace.
 - Workspace role checks prevent viewers from mutating API projects.
-- A maintainer can create a project from Carta and push a new OpenAPI file to GitHub.
-- A maintainer can connect an existing OpenAPI file from GitHub.
+- A maintainer can create a project from Carta and push a new OpenAPI file to GitLab.
+- A maintainer can connect an existing OpenAPI file from GitLab.
 - Carta parses the OpenAPI file and shows a structured API tree.
 - A maintainer can edit an operation's request and response through structured forms.
 - Studio changes are autosaved as server-side drafts.
@@ -596,23 +596,23 @@ These decisions resolve the open questions before implementation planning starts
 
 ### Authentication
 
-MVP uses first-party email and password authentication with server-side sessions stored in Postgres and an HTTP-only session cookie. This fits the existing Nest API and Postgres architecture and avoids coupling Carta login to GitHub.
+MVP uses first-party email and password authentication with server-side sessions stored in Postgres and an HTTP-only session cookie. This fits the existing Nest API and Postgres architecture and avoids coupling Carta login to GitLab.
 
-GitHub OAuth is used only for Git connections. A user can sign in to Carta with email and password, then connect GitHub from onboarding, project creation, or workspace settings.
+GitLab OAuth is used only for Git connections. A user can sign in to Carta with email and password, then connect GitLab from onboarding, project creation, or workspace settings.
 
 Invitation links contain random single-use tokens. Carta stores only token hashes. In development, invitation links can be surfaced in API responses or logs if email delivery is not configured. In production, invitation email delivery should use an SMTP or transactional email provider behind a small mail adapter.
 
 ### Git Provider SDK
 
-MVP implements GitHub first using Octokit against the GitHub REST API. The Git integration is wrapped behind a provider interface so GitLab, Bitbucket, and Azure DevOps can be added later without changing Studio or project flows.
+MVP implements GitLab first using the GitLab REST API through a small provider adapter. The preferred SDK is `@gitbeaker/rest`; if it creates friction with the repository's ESM or test setup, the adapter can use typed `fetch` calls against the same GitLab REST endpoints. The Git integration is wrapped behind a provider interface so GitHub, Bitbucket, and Azure DevOps can be added later without changing Studio or project flows.
 
-The GitHub implementation must support:
+The GitLab implementation must support:
 
-- listing repositories available to the connected user
+- listing GitLab projects or repositories available to the connected user
 - listing branches
 - reading file content and SHA
 - checking whether a file path exists
-- checking write permission where GitHub exposes it
+- checking project membership or protected-branch write permission where GitLab exposes it
 - creating a new file
 - updating an existing file with optimistic concurrency
 - building links back to the repository file and commit
