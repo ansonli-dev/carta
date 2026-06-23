@@ -70,7 +70,12 @@ describe("Carta project flow", () => {
 
     await waitFor(() => expect(screen.getByText("Orders API")).toBeInTheDocument());
     await userEvent.click(screen.getByRole("button", { name: "OpenAPI source" }));
-    expect(screen.getByLabelText<HTMLTextAreaElement>("OpenAPI source").value).toContain("title: Orders API");
+    const source = screen.getByLabelText<HTMLTextAreaElement>("OpenAPI source").value;
+    expect(source).toContain("title: Orders API");
+    expect(source).toContain("summary: List Todos");
+    expect(source).toContain("summary: Create User");
+    expect(source).toContain("securitySchemes:");
+    expect(source).toContain("components:");
   });
 });
 
