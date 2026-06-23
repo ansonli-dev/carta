@@ -168,6 +168,18 @@ api_source_revisions
 - created_by
 - created_at
 
+api_source_drafts
+- id
+- api_source_id
+- base_revision_id
+- raw_openapi
+- parsed_document
+- file_format: yaml | json
+- validation_status: valid | invalid
+- validation_errors
+- updated_by
+- updated_at
+
 openapi_indexes
 - id
 - api_source_id
@@ -250,8 +262,8 @@ Invalid OpenAPI files should not create a fully active project. The user sees va
 ```text
 User opens API Studio
 -> Edits operation, schema, request, response, examples, or servers
--> Carta updates local draft state
--> User saves
+-> Carta autosaves a server-side draft
+-> User selects "Sync to Git"
 -> Carta generates OpenAPI YAML or JSON
 -> Carta validates the generated OpenAPI
 -> Carta checks remote commit against base commit
@@ -262,6 +274,8 @@ User opens API Studio
 ```
 
 MVP uses direct commit to the configured branch. PR and MR flows are deferred.
+
+Drafts are not published and do not update the mock server. They exist to protect work in progress and support browser refreshes, navigation, and validation feedback. Git remains the source of truth for committed API contracts.
 
 Default commit messages:
 
@@ -386,7 +400,7 @@ It shows:
 Actions:
 
 - Sync from remote
-- Save and push
+- Sync draft to Git
 - View latest sync event
 - Open repository file
 
@@ -422,7 +436,7 @@ Only owners can manage members and invitations.
 
 OpenAPI files in Git are the final source of truth. Carta stores drafts, indexes, revisions, and published snapshots to power the product, but the canonical authored artifact is the OpenAPI file in the configured repository path.
 
-Save uses optimistic concurrency:
+Sync to Git uses optimistic concurrency:
 
 ```text
 base_commit_sha from last sync
@@ -431,7 +445,7 @@ if remote_commit_sha == base_commit_sha:
   validate generated OpenAPI
   commit and push
 else:
-  block save and require sync
+  block Git sync and require remote sync first
 ```
 
 Conflict behavior:
@@ -444,8 +458,9 @@ Conflict behavior:
 Validation behavior:
 
 - Generated OpenAPI must pass syntax and semantic validation before push.
-- Invalid request or response structures block save.
+- Invalid request or response structures block Git sync.
 - Risky designs such as GET request bodies should show warnings in Studio before publish.
+- Draft autosave may store invalid work in progress, but invalid drafts cannot be synced to Git.
 
 ## Mock Server Behavior
 
@@ -495,7 +510,7 @@ Account and access errors:
 
 - unauthenticated users are redirected to login
 - non-members cannot access private workspace resources
-- viewers cannot save, sync, publish, or manage mock settings
+- viewers cannot autosave drafts, sync to Git, publish, or manage mock settings
 - expired or revoked invitations show a clear recovery path
 
 Git errors:
@@ -503,7 +518,7 @@ Git errors:
 - missing Git connection prompts the user to connect GitHub
 - insufficient repo permission blocks create or sync
 - existing target file blocks Create from Carta
-- remote commit mismatch blocks save
+- remote commit mismatch blocks Git sync
 - provider outage records a failed sync event and preserves local draft
 
 OpenAPI errors:
@@ -514,7 +529,7 @@ OpenAPI errors:
 
 Publish and mock errors:
 
-- Git save can succeed even if publish or mock build fails
+- Git sync can succeed even if publish or mock build fails
 - failed publish or mock build marks the project as degraded
 - users can retry publish or mock build from Project Overview or Mock Server
 
@@ -565,21 +580,86 @@ audit_events
 - A maintainer can connect an existing OpenAPI file from GitHub.
 - Carta parses the OpenAPI file and shows a structured API tree.
 - A maintainer can edit an operation's request and response through structured forms.
-- Saving validates the generated OpenAPI before pushing to Git.
-- Saving is blocked when the remote file changed since the last sync.
-- A successful save records a revision and sync event.
-- A successful save automatically publishes docs and refreshes the mock server.
+- Studio changes are autosaved as server-side drafts.
+- Sync to Git validates the generated OpenAPI before pushing to Git.
+- Sync to Git is blocked when the remote file changed since the last sync.
+- A successful Git sync records a revision and sync event.
+- A successful Git sync automatically publishes docs and refreshes the mock server.
 - Published docs render from the published revision.
 - Mock server responses come from the published revision and validate incoming requests.
 - Private docs and mock URLs require workspace membership.
 - Public docs and mock URLs are accessible by link.
 
-## Open Questions For Implementation Planning
+## Implementation Decisions
 
-- Which auth provider should MVP use in this repository: local email/password, OAuth, or an existing framework adapter?
-- Which Git provider SDK should be used first for GitHub integration?
-- Should OpenAPI be stored as YAML, JSON, or preserve the original file format when imported?
-- Should local drafts be persisted continuously or only on explicit save?
-- Should mock server be implemented in-process first or as a separate service?
+These decisions resolve the open questions before implementation planning starts.
 
-These questions do not block the product design. They should be answered in the implementation plan after reviewing the existing codebase constraints.
+### Authentication
+
+MVP uses first-party email and password authentication with server-side sessions stored in Postgres and an HTTP-only session cookie. This fits the existing Nest API and Postgres architecture and avoids coupling Carta login to GitHub.
+
+GitHub OAuth is used only for Git connections. A user can sign in to Carta with email and password, then connect GitHub from onboarding, project creation, or workspace settings.
+
+Invitation links contain random single-use tokens. Carta stores only token hashes. In development, invitation links can be surfaced in API responses or logs if email delivery is not configured. In production, invitation email delivery should use an SMTP or transactional email provider behind a small mail adapter.
+
+### Git Provider SDK
+
+MVP implements GitHub first using Octokit against the GitHub REST API. The Git integration is wrapped behind a provider interface so GitLab, Bitbucket, and Azure DevOps can be added later without changing Studio or project flows.
+
+The GitHub implementation must support:
+
+- listing repositories available to the connected user
+- listing branches
+- reading file content and SHA
+- checking whether a file path exists
+- checking write permission where GitHub exposes it
+- creating a new file
+- updating an existing file with optimistic concurrency
+- building links back to the repository file and commit
+
+### OpenAPI File Format
+
+Carta-created APIs use YAML by default.
+
+Imported APIs preserve their source file format based on the connected file extension and parsed content:
+
+- `.yaml` and `.yml` stay YAML
+- `.json` stays JSON
+
+Revisions store the raw source text exactly as generated or imported. Parsed documents are stored as JSON for querying, validation, indexing, and structured editing. When Carta writes back to Git, it emits the same format as the source unless the user explicitly creates a new Carta API, in which case YAML is used.
+
+MVP does not support multi-file OpenAPI documents or external `$ref` values. Existing parser behavior already rejects external refs, and that remains part of the MVP scope.
+
+### Draft Persistence
+
+Local browser-only draft state is not enough for a product workflow. MVP persists server-side drafts in Postgres.
+
+Studio behavior:
+
+- editor changes update local UI immediately
+- Carta autosaves a server-side draft after a short debounce
+- drafts can be invalid while the user is editing
+- validation feedback is shown from the current draft
+- only valid drafts can be synced to Git
+- drafts are discarded or rebased after successful Git sync
+
+This gives users protection against browser refresh and navigation while keeping Git-backed revisions clean.
+
+### Mock Server Architecture
+
+MVP keeps mock server orchestration in the API service and uses Prism as the mock engine. This matches the current codebase, which already has `@stoplight/prism-cli`, a Prism process adapter, and mock service tests.
+
+The implementation keeps the existing adapter boundary so the mock runtime can move to a separate service later.
+
+Development behavior:
+
+- API service starts Prism child processes on local ports.
+- `mock_instances` records status, base URL, port, and errors.
+
+Production-oriented behavior:
+
+- Carta exposes stable mock URLs through the API service.
+- The API service routes or proxies requests to the active Prism-backed mock instance.
+- Mock instances are built only from published revisions.
+
+This is simpler than introducing a separate mock service now, while preserving a clean path to extract it later if scale requires it.
